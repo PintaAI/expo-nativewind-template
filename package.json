@@ -1,5 +1,5 @@
 {
-  "name": "ethos",
+  "name": "expo-nativewind-template",
   "main": "expo-router/entry",
   "version": "1.0.0",
   "dependencies": {
@@ -24,6 +24,7 @@
     "react-native": "0.85.3",
     "react-native-css": "^3.0.7",
     "react-native-gesture-handler": "~2.31.1",
+    "react-native-image-colors": "^2.6.0",
     "react-native-reanimated": "4.3.1",
     "react-native-safe-area-context": "~5.7.0",
     "react-native-screens": "4.25.2",
@@ -42,12 +43,12 @@
     "dev": "expo start --dev-client --tunnel -c",
     "start": "expo start --dev-client --tunnel",
     "start:dev": "expo start --dev-client --tunnel",
-    "reset-project": "node ./scripts/reset-project.js",
+    "init-template": "node ./scripts/init-template.js",
     "android": "expo start --dev-client --tunnel --android",
     "ios": "expo start --dev-client --tunnel --ios",
     "run:android": "expo run:android",
-    "build:android": "eas build --profile development --platform android --local --output ./ethos-dev.apk",
-    "build:android:preview": "eas build --profile preview --platform android --local --output ./ethos-preview.apk",
+    "build:android": "eas build --profile development --platform android --local --output ./app-dev.apk",
+    "build:android:preview": "eas build --profile preview --platform android --local --output ./app-preview.apk",
     "build:ios": "eas build --profile development --platform ios",
     "web": "expo start --web",
     "lint": "expo lint"

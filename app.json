@@ -1,15 +1,15 @@
 {
   "expo": {
-    "name": "ethos",
-    "slug": "ethos",
+    "name": "Expo NativeWind Starter",
+    "slug": "expo-nativewind-starter",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "ethos",
+    "scheme": "expo-nativewind-starter",
     "userInterfaceStyle": "automatic",
     "ios": {
       "icon": "./assets/expo.icon",
-      "bundleIdentifier": "com.rorez.ethos",
+      "bundleIdentifier": "com.example.app",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -21,7 +21,7 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "package": "com.rorez.ethos",
+      "package": "com.example.app",
       "predictiveBackGestureEnabled": false
     },
     "web": {
@@ -46,17 +46,10 @@
       "reactCompiler": true
     },
     "extra": {
-      "router": {},
-      "eas": {
-        "projectId": "426ba72c-533d-4fd5-ae43-5259006f1e11"
-      }
+      "router": {}
     },
-    "owner": "rorez",
     "runtimeVersion": {
       "policy": "appVersion"
-    },
-    "updates": {
-      "url": "https://u.expo.dev/426ba72c-533d-4fd5-ae43-5259006f1e11"
     }
   }
 }

@@ -1,56 +1,104 @@
-# Welcome to your Expo app 👋
+# Expo NativeWind Starter
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Reusable Expo SDK 56 starter with Expo Router, NativeWind v5 preview, Tailwind CSS v4, EAS profiles, typed routes, React Compiler, themed native tabs, drawer navigation, and a settings example using `@expo/ui`.
 
-## Get started
+## Use This Template
 
-1. Install dependencies
-
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+1. Create a new repository from this GitHub template.
+2. Install dependencies:
 
 ```bash
-npm run reset-project
+npm install
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+3. Initialize app-specific identity:
 
-### Other setup steps
+```bash
+npm run init-template
+```
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+4. Verify Expo config:
 
-## Learn more
+```bash
+npx expo config --json
+```
 
-To learn more about developing your project with Expo, look at the following resources:
+5. Start local development:
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+```bash
+npm run dev
+```
 
-## Join the community
+## Included
 
-Join our community of developers creating universal apps.
+- Expo SDK 56, React 19.2.3, React Native 0.85.3, TypeScript 6.0.
+- Expo Router with typed routes and React Compiler enabled.
+- NativeWind v5 preview with Tailwind CSS v4 and `react-native-css`.
+- CSS theme variables in `src/global.css` and runtime theme switching through NativeWind variables.
+- Native tabs, drawer navigation, nested stack routes, and settings/detail examples.
+- EAS build profiles for `development`, `preview`, and `production` channels.
+- Dev-client-first scripts using tunnel mode.
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+## Commands
+
+- `npm run dev` starts the Expo dev server in dev-client mode with tunnel and cache clear.
+- `npm run start` starts the Expo dev server in dev-client mode with tunnel.
+- `npm run android` starts dev-client mode with tunnel and opens Android.
+- `npm run ios` starts dev-client mode with tunnel and opens iOS.
+- `npm run run:android` uses `expo run:android` for local native Android install/run.
+- `npm run build:android` builds a local Android development APK.
+- `npm run build:android:preview` builds a local Android preview APK.
+- `npm run build:ios` starts an EAS cloud iOS development build.
+- `npm run web` starts the web-only Expo dev server.
+- `npm run lint` runs `expo lint`.
+
+## Template Initialization
+
+`npm run init-template` updates:
+
+- `package.json` and `package-lock.json` package names.
+- Android local build output filenames.
+- `app.json` display name, slug, URL scheme, bundle identifiers, owner, and optional EAS update URL.
+- `src/config/app.ts` display metadata used by starter screens.
+
+If you skip the EAS project ID, the script removes `updates.url` and `extra.eas.projectId` from `app.json`. You can add them later with `eas init` or by rerunning equivalent config changes manually.
+
+## Project Structure
+
+```text
+src/
+├── app/
+│   ├── _layout.tsx
+│   ├── (home)/
+│   │   ├── _layout.tsx
+│   │   └── index/
+│   │       ├── _layout.tsx
+│   │       └── index.tsx
+│   └── settings/
+│       ├── _layout.tsx
+│       ├── detail.tsx
+│       └── index.tsx
+├── components/
+│   ├── AppTabs.tsx
+│   ├── ThemeContext.tsx
+│   ├── ThemeProvider.tsx
+│   └── useNativeTheme.ts
+├── config/
+│   └── app.ts
+└── global.css
+```
+
+## Verification
+
+Prefer these checks after template changes:
+
+```bash
+npx tsc --noEmit
+npx expo config --json
+```
+
+Use this bundling check when needed:
+
+```bash
+npx expo export --platform web --output-dir /tmp/expo-template-test-build
+```
