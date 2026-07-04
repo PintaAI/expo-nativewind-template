@@ -4,18 +4,60 @@
 
 @import "nativewind/theme";
 
-@theme {
-  --color-primary: #3b82f6;
-  --color-secondary: #8b5cf6;
-  --color-muted: #64748b;
-  --color-background: #ffffff;
-  --color-foreground: #000000;
+@theme inline {
+  --color-primary: var(--app-color-primary);
+  --color-secondary: var(--app-color-secondary);
+  --color-muted: var(--app-color-muted);
+  --color-background: var(--app-color-background);
+  --color-foreground: var(--app-color-foreground);
+  --color-inverse-foreground: var(--app-color-inverse-foreground);
+  --color-positive: var(--app-color-positive);
+  --color-negative: var(--app-color-negative);
+
+  --text-xs: var(--app-text-xs);
+  --text-sm: var(--app-text-sm);
+  --text-base: var(--app-text-base);
+  --text-lg: var(--app-text-lg);
+  --text-xl: var(--app-text-xl);
+  --text-2xl: var(--app-text-2xl);
+  --text-3xl: var(--app-text-3xl);
+  --text-4xl: var(--app-text-4xl);
+  --text-5xl: var(--app-text-5xl);
+  --text-6xl: var(--app-text-6xl);
+
+  --tracking-tighter: var(--app-tracking-tighter);
+  --tracking-tight: var(--app-tracking-tight);
+  --tracking-normal: var(--app-tracking-normal);
+  --tracking-wide: var(--app-tracking-wide);
+  --tracking-wider: var(--app-tracking-wider);
+  --tracking-widest: var(--app-tracking-widest);
 }
 
 :root {
-  --color-primary: #3b82f6;
-  --color-secondary: #8b5cf6;
-  --color-muted: #64748b;
-  --color-background: #f7fdf9;
-  --color-foreground: #000000;
+  --app-color-primary: #3b82f6;
+  --app-color-secondary: #8b5cf6;
+  --app-color-muted: #64748b;
+  --app-color-background: #f7fdf9;
+  --app-color-foreground: #000000;
+  --app-color-inverse-foreground: #ffffff;
+  --app-color-positive: #16a34a;
+  --app-color-negative: #dc2626;
+
+  --app-text-xs: 0.7425rem;
+  --app-text-sm: 0.86625rem;
+  --app-text-base: 0.99rem;
+  --app-text-lg: 1.125rem;
+  --app-text-xl: 1.2375rem;
+  --app-text-2xl: 1.485rem;
+  --app-text-3xl: 1.85625rem;
+  --app-text-4xl: 2.2275rem;
+  --app-text-5xl: 2.97rem;
+  --app-text-6xl: 3.7125rem;
+
+  --app-tracking-tighter: -0.045em;
+  --app-tracking-tight: -0.0225em;
+  --app-tracking-normal: 0em;
+  --app-tracking-wide: 0.0225em;
+  --app-tracking-wider: 0.045em;
+  --app-tracking-widest: 0.09em;
 }

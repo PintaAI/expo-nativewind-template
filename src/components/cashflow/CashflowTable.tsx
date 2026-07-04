@@ -1,0 +1,409 @@
+import { useState } from "react";
+import { Alert, Pressable, ScrollView, TextInput, View } from "react-native";
+import { SymbolView, type SFSymbol } from "expo-symbols";
+import { AppText as RNText } from "@/components/AppText";
+import { useAppTheme } from "@/components/AppTheme";
+import { useCurrency } from "@/components/CurrencyProvider";
+import { alpha } from "@/lib/color";
+import { addDaysToDateKey, formatDateKey, parseDateKey } from "@/lib/date";
+
+export type IOType = "Income" | "Expenses";
+
+export type CashflowEntry = {
+  id: string;
+  name: string;
+  nominal: number;
+  category: string | null;
+  createdBy: string | null;
+  date: string;
+  io: IOType;
+};
+
+type CashflowTableProps = {
+  entries: CashflowEntry[];
+  dateFilter?: string;
+  onDateFilterChange?: (date: string) => void;
+  hideTanggal?: boolean;
+};
+
+type SortField = "name" | "nominal" | "category" | "createdBy" | "date" | "io";
+type SortDirection = "asc" | "desc";
+type FilterValue = string | "all";
+
+const PAGE_SIZE = 20;
+const IO_OPTIONS: IOType[] = ["Income", "Expenses"];
+const DAY_NAMES = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
+
+const CATEGORY_COLORS: Record<string, { background: string; text: string; symbol: SFSymbol }> = {
+  Salary: { background: "rgba(22,163,74,0.12)", text: "#16a34a", symbol: "banknote.fill" },
+  Freelance: { background: "rgba(22,163,74,0.12)", text: "#16a34a", symbol: "briefcase.fill" },
+  Groceries: { background: "rgba(220,38,38,0.11)", text: "#dc2626", symbol: "basket.fill" },
+  Transport: { background: "rgba(234,88,12,0.12)", text: "#ea580c", symbol: "car.fill" },
+  "Coffee & meals": { background: "rgba(202,138,4,0.14)", text: "#ca8a04", symbol: "cup.and.saucer.fill" },
+  Utilities: { background: "rgba(37,99,235,0.12)", text: "#2563eb", symbol: "bolt.fill" },
+  Subscriptions: { background: "rgba(147,51,234,0.12)", text: "#9333ea", symbol: "play.rectangle.fill" },
+};
+
+function formatDayName(dateKey: string) {
+  return DAY_NAMES[parseDateKey(dateKey).getDay()];
+}
+
+function TableSymbol({ name, color, size = 15 }: { name: SFSymbol; color: string; size?: number }) {
+  return <SymbolView name={name} size={size} tintColor={color} fallback={<RNText style={{ color }}>•</RNText>} />;
+}
+
+function Checkbox({ checked, onPress, label }: { checked: boolean; onPress: () => void; label: string }) {
+  const appTheme = useAppTheme();
+  const borderColor = checked ? appTheme.colors.primary : appTheme.isDark ? "rgba(255,255,255,0.2)" : "rgba(15,23,42,0.18)";
+
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="checkbox"
+      accessibilityState={{ checked }}
+      accessibilityLabel={label}
+      className="h-5 w-5 items-center justify-center rounded-[5px]"
+      style={{ backgroundColor: checked ? appTheme.colors.primary : "transparent", borderColor, borderWidth: 1 }}
+    >
+      {checked ? <TableSymbol name="checkmark" color={appTheme.colors.inverseForeground} size={11} /> : null}
+    </Pressable>
+  );
+}
+
+function FilterChip({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
+  const appTheme = useAppTheme();
+  const borderColor = active ? "transparent" : appTheme.isDark ? "rgba(255,255,255,0.13)" : "rgba(15,23,42,0.1)";
+
+  return (
+    <Pressable
+      onPress={onPress}
+      className="rounded-full px-3 py-1.5"
+      style={{ backgroundColor: active ? appTheme.colors.primary : "transparent", borderColor, borderWidth: 1 }}
+    >
+      <RNText className="text-xs font-semibold" style={{ color: active ? appTheme.colors.inverseForeground : appTheme.colors.muted }}>
+        {label}
+      </RNText>
+    </Pressable>
+  );
+}
+
+function SortChip({ label, field, sortField, sortDirection, onSort }: { label: string; field: SortField; sortField: SortField; sortDirection: SortDirection; onSort: (field: SortField) => void }) {
+  const active = sortField === field;
+
+  return <FilterChip label={`${label}${active ? (sortDirection === "asc" ? " ↑" : " ↓") : ""}`} active={active} onPress={() => onSort(field)} />;
+}
+
+function CategoryBadge({ category }: { category: string | null }) {
+  const appTheme = useAppTheme();
+
+  if (!category) {
+    return <RNText className="text-xs" style={{ color: appTheme.colors.muted }}>-</RNText>;
+  }
+
+  const config = CATEGORY_COLORS[category] ?? { background: alpha(appTheme.colors.primary, 0.12), text: appTheme.colors.primary, symbol: "tag.fill" as SFSymbol };
+
+  return (
+    <View className="self-start flex-row items-center gap-1 rounded-full px-2 py-1" style={{ backgroundColor: config.background }}>
+      <TableSymbol name={config.symbol} color={config.text} size={12} />
+      <RNText numberOfLines={1} className="text-xs font-medium" style={{ color: config.text }}>
+        {category}
+      </RNText>
+    </View>
+  );
+}
+
+function TransactionGlyph({ io, category, selected }: { io: IOType; category: string | null; selected: boolean }) {
+  const appTheme = useAppTheme();
+  const isIncome = io === "Income";
+  const color = selected ? appTheme.colors.inverseForeground : appTheme.colors.muted;
+  const symbol = selected ? "checkmark" : CATEGORY_COLORS[category ?? ""]?.symbol ?? (isIncome ? "arrow.down.left" : "arrow.up.right");
+  const backgroundColor = selected ? appTheme.colors.primary : appTheme.isDark ? "rgba(255,255,255,0.065)" : "rgba(15,23,42,0.055)";
+
+  return (
+    <View className="h-11 w-11 items-center justify-center rounded-2xl" style={{ backgroundColor }}>
+      <TableSymbol name={symbol as SFSymbol} color={color} size={17} />
+    </View>
+  );
+}
+
+function DayFilterNavigator({ dateFilter, onDateFilterChange }: { dateFilter: string; onDateFilterChange: (date: string) => void }) {
+  const appTheme = useAppTheme();
+
+  return (
+    <View className="mt-3 flex-row items-center gap-2">
+      <Pressable
+        onPress={() => onDateFilterChange(addDaysToDateKey(dateFilter, -1))}
+        accessibilityRole="button"
+        accessibilityLabel="Hari sebelumnya"
+        className="h-9 w-9 items-center justify-center rounded-full"
+      >
+        <TableSymbol name="arrow.left" color={appTheme.colors.foreground} />
+      </Pressable>
+      <RNText numberOfLines={1} className="flex-1 text-center text-sm font-semibold capitalize" style={{ color: appTheme.colors.foreground }}>
+        {formatDayName(dateFilter)}
+      </RNText>
+      <Pressable
+        onPress={() => onDateFilterChange(addDaysToDateKey(dateFilter, 1))}
+        accessibilityRole="button"
+        accessibilityLabel="Hari berikutnya"
+        className="h-9 w-9 items-center justify-center rounded-full"
+      >
+        <TableSymbol name="arrow.right" color={appTheme.colors.foreground} />
+      </Pressable>
+    </View>
+  );
+}
+
+function compareText(a: string | null, b: string | null) {
+  return (a ?? "").localeCompare(b ?? "");
+}
+
+export function CashflowTable({ entries, dateFilter, onDateFilterChange, hideTanggal = false }: CashflowTableProps) {
+  const appTheme = useAppTheme();
+  const { format } = useCurrency();
+  const [globalFilter, setGlobalFilter] = useState("");
+  const [ioFilter, setIoFilter] = useState<FilterValue>("all");
+  const [categoryFilter, setCategoryFilter] = useState<FilterValue>("all");
+  const [creatorFilter, setCreatorFilter] = useState<FilterValue>("all");
+  const [showFilters, setShowFilters] = useState(false);
+  const [sortField, setSortField] = useState<SortField>("date");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+  const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({});
+  const [deletedIds, setDeletedIds] = useState<Record<string, boolean>>({});
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const positive = appTheme.colors.positive;
+  const negative = appTheme.colors.negative;
+  const borderColor = appTheme.isDark ? "rgba(255,255,255,0.12)" : "rgba(15,23,42,0.1)";
+  const mutedSurface = appTheme.isDark ? "rgba(255,255,255,0.045)" : "rgba(15,23,42,0.035)";
+  const search = globalFilter.trim().toLowerCase();
+  const categoryOptions = Array.from(new Set(entries.map((entry) => entry.category).filter((category): category is string => !!category)));
+  const creatorOptions = Array.from(new Set(entries.map((entry) => entry.createdBy ?? "Unknown")));
+  const filteredEntries = entries
+    .filter((entry) => !deletedIds[entry.id])
+    .filter((entry) => !dateFilter || entry.date === dateFilter)
+    .filter((entry) => !search || entry.name.toLowerCase().includes(search))
+    .filter((entry) => ioFilter === "all" || entry.io === ioFilter)
+    .filter((entry) => categoryFilter === "all" || entry.category === categoryFilter)
+    .filter((entry) => creatorFilter === "all" || (entry.createdBy ?? "Unknown") === creatorFilter)
+    .sort((a, b) => {
+      let result = 0;
+
+      if (sortField === "nominal") result = a.nominal - b.nominal;
+      if (sortField === "date") result = compareText(a.date, b.date);
+      if (sortField === "name") result = compareText(a.name, b.name);
+      if (sortField === "category") result = compareText(a.category, b.category);
+      if (sortField === "createdBy") result = compareText(a.createdBy, b.createdBy);
+      if (sortField === "io") result = compareText(a.io, b.io);
+
+      return sortDirection === "asc" ? result : -result;
+    });
+  const visibleEntries = filteredEntries.slice(0, visibleCount);
+  const hasMore = filteredEntries.length > visibleEntries.length;
+  const selectedCount = Object.values(rowSelection).filter(Boolean).length;
+  const allVisibleSelected = visibleEntries.length > 0 && visibleEntries.every((entry) => rowSelection[entry.id]);
+  const isSelecting = selectedCount > 0;
+
+  function handleSort(field: SortField) {
+    if (sortField === field) {
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+      return;
+    }
+
+    setSortField(field);
+    setSortDirection(field === "date" ? "desc" : "asc");
+  }
+
+  function toggleVisibleRows() {
+    setRowSelection((current) => {
+      const next = { ...current };
+      visibleEntries.forEach((entry) => {
+        next[entry.id] = !allVisibleSelected;
+      });
+      return next;
+    });
+  }
+
+  function toggleRow(id: string) {
+    setRowSelection((current) => ({ ...current, [id]: !current[id] }));
+  }
+
+  function handleBulkDelete() {
+    const selectedIds = Object.keys(rowSelection).filter((id) => rowSelection[id]);
+    if (selectedIds.length === 0) return;
+
+    setDeletedIds((current) => {
+      const next = { ...current };
+      selectedIds.forEach((id) => {
+        next[id] = true;
+      });
+      return next;
+    });
+    setRowSelection({});
+  }
+
+  function clearSelection() {
+    setRowSelection({});
+  }
+
+  return (
+    <View className="gap-4">
+      <View className="relative">
+        {isSelecting ? (
+          <View className="absolute inset-0 z-10 flex-row items-center gap-3 rounded-full pl-3 pr-1 py-2" style={{ backgroundColor: appTheme.colors.primary }}>
+            <Checkbox checked={allVisibleSelected} onPress={toggleVisibleRows} label="Select all visible entries" />
+            <RNText className="flex-1 text-sm font-semibold" style={{ color: appTheme.colors.inverseForeground }}>
+              {selectedCount} selected
+            </RNText>
+            <Pressable onPress={handleBulkDelete} className="h-9 flex-row items-center gap-1.5 rounded-full px-3" style={{ backgroundColor: alpha(negative, 0.95) }}>
+              <TableSymbol name="trash.fill" color="#ffffff" size={12} />
+              <RNText className="text-xs font-bold text-white">Delete</RNText>
+            </Pressable>
+            <Pressable onPress={clearSelection} className="h-9 w-9 items-center justify-center rounded-full" style={{ backgroundColor: alpha(appTheme.colors.inverseForeground, 0.14) }}>
+              <TableSymbol name="xmark" color={appTheme.colors.inverseForeground} size={12} />
+            </Pressable>
+          </View>
+        ) : null}
+
+        <View className="flex-row items-center gap-2">
+          <TextInput
+            value={globalFilter}
+            onChangeText={(value) => {
+              setGlobalFilter(value);
+              setVisibleCount(PAGE_SIZE);
+            }}
+            placeholder="Search by name..."
+            placeholderTextColor={appTheme.colors.muted}
+            className="min-w-0 flex-1 rounded-2xl px-3 py-2 text-sm"
+            style={{ backgroundColor: mutedSurface, color: appTheme.colors.foreground }}
+          />
+          <Pressable
+            onPress={() => setShowFilters(!showFilters)}
+            accessibilityRole="button"
+            accessibilityLabel="Filter entries"
+            className="h-10 w-10 items-center justify-center rounded-2xl"
+            style={{ backgroundColor: mutedSurface, borderColor, borderWidth: 1 }}
+          >
+            <TableSymbol name="line.3.horizontal.decrease" color={appTheme.colors.foreground} />
+          </Pressable>
+        </View>
+
+        {dateFilter && onDateFilterChange && !hideTanggal ? (
+          <DayFilterNavigator dateFilter={dateFilter} onDateFilterChange={onDateFilterChange} />
+        ) : null}
+
+      </View>
+
+      {showFilters ? (
+        <View className="gap-3 rounded-[28px] p-3" style={{ backgroundColor: mutedSurface }}>
+          <View className="gap-1.5">
+            <RNText className="text-xs font-medium" style={{ color: appTheme.colors.muted }}>Sort</RNText>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerClassName="gap-2">
+              <SortChip label="Tanggal" field="date" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} />
+              <SortChip label="Nama" field="name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} />
+              <SortChip label="Nominal" field="nominal" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} />
+            </ScrollView>
+          </View>
+          <View className="gap-1.5">
+            <RNText className="text-xs font-medium" style={{ color: appTheme.colors.muted }}>Type</RNText>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerClassName="gap-2">
+              <FilterChip label="All" active={ioFilter === "all"} onPress={() => setIoFilter("all")} />
+              {IO_OPTIONS.map((option) => (
+                <FilterChip key={option} label={option} active={ioFilter === option} onPress={() => setIoFilter(option)} />
+              ))}
+            </ScrollView>
+          </View>
+          <View className="gap-1.5">
+            <RNText className="text-xs font-medium" style={{ color: appTheme.colors.muted }}>Category</RNText>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerClassName="gap-2">
+              <FilterChip label="All" active={categoryFilter === "all"} onPress={() => setCategoryFilter("all")} />
+              {categoryOptions.map((option) => (
+                <FilterChip key={option} label={option} active={categoryFilter === option} onPress={() => setCategoryFilter(option)} />
+              ))}
+            </ScrollView>
+          </View>
+          <View className="gap-1.5">
+            <RNText className="text-xs font-medium" style={{ color: appTheme.colors.muted }}>Ditambah oleh</RNText>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerClassName="gap-2">
+              <FilterChip label="All" active={creatorFilter === "all"} onPress={() => setCreatorFilter("all")} />
+              {creatorOptions.map((option) => (
+                <FilterChip key={option} label={option} active={creatorFilter === option} onPress={() => setCreatorFilter(option)} />
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      ) : null}
+
+      {filteredEntries.length === 0 ? (
+        <View className="items-center justify-center gap-2 py-16">
+          <TableSymbol name="doc.text" color={appTheme.colors.muted} size={40} />
+          <RNText className="text-sm font-medium" style={{ color: appTheme.colors.muted }}>
+            {dateFilter ? "Hayo hari ini belum nyatet keuangan yaa?" : "Belum ada tercatat"}
+          </RNText>
+          <RNText className="max-w-[280px] text-center text-xs" style={{ color: appTheme.colors.muted }}>
+            {dateFilter
+              ? "Catat pengeluaran atau pemasukan hari ini biar keuanganmu terkontrol."
+              : "Mulai dengan mencatat pengeluaran atau pemasukan."}
+          </RNText>
+        </View>
+      ) : (
+        <View className="gap-2">
+            {visibleEntries.map((entry) => {
+              const isIncome = entry.io === "Income";
+              const selected = !!rowSelection[entry.id];
+              const amountColor = isIncome ? positive : negative;
+              const typeLabel = isIncome ? "Income" : "Expense";
+
+              return (
+                <Pressable
+                  key={entry.id}
+                  onLongPress={() => toggleRow(entry.id)}
+                  onPress={() => {
+                    if (isSelecting) {
+                      toggleRow(entry.id);
+                      return;
+                    }
+
+                    Alert.alert(entry.name, `${format(entry.nominal)}\n${formatDateKey(entry.date)}\n${entry.createdBy ?? "Unknown"}`);
+                  }}
+                  className="flex-row items-center gap-3 rounded-[28px] px-3 py-3"
+                  style={{
+                    backgroundColor: selected ? alpha(appTheme.colors.primary, appTheme.isDark ? 0.24 : 0.12) : mutedSurface,
+                    borderColor: selected ? alpha(appTheme.colors.primary, 0.5) : "transparent",
+                    borderWidth: 1,
+                  }}
+                >
+                  <TransactionGlyph io={entry.io} category={entry.category} selected={selected} />
+                  <View className="min-w-0 flex-1 gap-1.5">
+                    <RNText numberOfLines={1} className="text-base font-semibold" style={{ color: appTheme.colors.foreground }}>{entry.name}</RNText>
+                    <View className="flex-row items-center gap-2 overflow-hidden">
+                      {!hideTanggal ? <RNText className="text-xs" style={{ color: appTheme.colors.muted }}>{formatDateKey(entry.date)}</RNText> : null}
+                      <CategoryBadge category={entry.category} />
+                    </View>
+                  </View>
+                  <View className="items-end gap-1.5">
+                    <RNText numberOfLines={1} className="text-right text-base font-bold" style={{ color: amountColor }}>
+                      {isIncome ? "+" : "-"}{format(entry.nominal, { compact: true })}
+                    </RNText>
+                    <View className="flex-row items-center gap-1">
+                      <View className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: amountColor }} />
+                      <RNText className="text-xs font-medium" style={{ color: appTheme.colors.muted }}>{typeLabel}</RNText>
+                    </View>
+                  </View>
+                </Pressable>
+              );
+            })}
+          </View>
+      )}
+
+      <View className="items-center justify-center py-4">
+        {hasMore ? (
+          <Pressable onPress={() => setVisibleCount((count) => count + PAGE_SIZE)} className="rounded-full px-4 py-2" style={{ backgroundColor: mutedSurface }}>
+            <RNText className="text-sm font-semibold" style={{ color: appTheme.colors.foreground }}>Load more</RNText>
+          </Pressable>
+        ) : (
+          <RNText className="text-sm" style={{ color: appTheme.colors.muted }}>Menampilkan {filteredEntries.length} tercatat</RNText>
+        )}
+      </View>
+    </View>
+  );
+}

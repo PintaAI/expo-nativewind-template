@@ -1,0 +1,100 @@
+import { Pressable, ScrollView, View } from "react-native";
+import { router, Stack } from "expo-router";
+import { AppText as Text } from "@/components/AppText";
+import { SymbolView, type SFSymbol } from "expo-symbols";
+import { useAppTheme } from "@/components/AppTheme";
+import { alpha } from "@/lib/color";
+
+type SidebarFormSheetProps = {
+  title: string;
+  description: string;
+  icon: SFSymbol;
+  fields: string[];
+  actions?: string[];
+};
+
+function PlaceholderField({ label }: { label: string }) {
+  const appTheme = useAppTheme();
+  const fieldBackground = appTheme.isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.045)";
+  const fieldBorder = appTheme.isDark ? "rgba(255,255,255,0.1)" : "rgba(15,23,42,0.08)";
+
+  return (
+    <View className="gap-2">
+      <Text className="text-sm font-semibold" style={{ color: appTheme.colors.foreground }}>
+        {label}
+      </Text>
+      <View
+        className="h-12 rounded-2xl border px-4"
+        style={{ backgroundColor: fieldBackground, borderColor: fieldBorder, justifyContent: "center" }}
+      >
+        <Text style={{ color: appTheme.colors.muted }}>Placeholder input</Text>
+      </View>
+    </View>
+  );
+}
+
+export function SidebarFormSheet({ title, description, icon, fields, actions = ["Cancel", "Save"] }: SidebarFormSheetProps) {
+  const appTheme = useAppTheme();
+  const accentSurface = alpha(appTheme.colors.primary, appTheme.isDark ? 0.18 : 0.12);
+  const borderColor = appTheme.isDark ? "rgba(255,255,255,0.1)" : "rgba(15,23,42,0.08)";
+
+  return (
+    <>
+      <Stack.Screen options={{ title }} />
+      <Stack.Toolbar placement="left">
+        <Stack.Toolbar.Button icon="xmark" onPress={() => router.back()} />
+      </Stack.Toolbar>
+      <ScrollView
+        className="flex-1 bg-[--app-color-background]"
+        contentContainerClassName="gap-5 px-5 pb-8 pt-6"
+        contentInsetAdjustmentBehavior="automatic"
+      >
+        <View className="gap-3 rounded-3xl border p-4" style={{ borderColor, backgroundColor: accentSurface }}>
+          <View className="h-12 w-12 items-center justify-center rounded-2xl" style={{ backgroundColor: appTheme.colors.primary }}>
+            <SymbolView name={icon} size={22} tintColor={appTheme.colors.inverseForeground} fallback={<Text>•</Text>} />
+          </View>
+          <View className="gap-1">
+            <Text className="text-2xl font-black tracking-tight" style={{ color: appTheme.colors.foreground }}>
+              {title}
+            </Text>
+            <Text className="text-base leading-6" style={{ color: appTheme.colors.muted }}>
+              {description}
+            </Text>
+          </View>
+        </View>
+
+        <View className="gap-4">
+          {fields.map((field) => (
+            <PlaceholderField key={field} label={field} />
+          ))}
+        </View>
+
+        <View className="flex-row gap-2 pt-1">
+          {actions.map((action, index) => {
+            const isPrimary = index === actions.length - 1;
+
+            return (
+              <Pressable
+                key={action}
+                accessibilityRole="button"
+                className="h-12 flex-1 items-center justify-center rounded-2xl border"
+                style={{
+                  backgroundColor: isPrimary ? appTheme.colors.primary : "transparent",
+                  borderColor: isPrimary ? appTheme.colors.primary : borderColor,
+                }}
+                onPress={isPrimary ? undefined : () => router.back()}
+              >
+                <Text
+                  className="font-bold"
+                  style={{ color: isPrimary ? appTheme.colors.inverseForeground : appTheme.colors.foreground }}
+                >
+                  {action}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </ScrollView>
+    </>
+  );
+}

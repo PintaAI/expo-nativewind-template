@@ -1,15 +1,18 @@
 {
   "expo": {
-    "name": "Expo NativeWind Starter",
-    "slug": "expo-nativewind-starter",
+    "name": "ethos",
+    "slug": "ethos",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
-    "scheme": "expo-nativewind-starter",
+    "icon": "./assets/images/ios-icon-default.png",
+    "scheme": "ethos",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon",
-      "bundleIdentifier": "com.example.app",
+      "icon": {
+        "light": "./assets/images/ios-icon-default.png",
+        "dark": "./assets/images/ios-icon-dark.png"
+      },
+      "bundleIdentifier": "com.rorez.ethos",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -21,7 +24,7 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "package": "com.example.app",
+      "package": "com.rorez.ethos",
       "predictiveBackGestureEnabled": false
     },
     "web": {
@@ -39,6 +42,36 @@
             "imageWidth": 76
           }
         }
+      ],
+      "expo-sqlite",
+      [
+        "expo-secure-store",
+        {
+          "configureAndroidBackup": true,
+          "faceIDPermission": "Allow Ethos to use Face ID to keep your financial data secure."
+        }
+      ],
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Allow Ethos to use Face ID to unlock your financial data."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Ethos to access your photos for profile images and receipt attachments.",
+          "cameraPermission": "Allow Ethos to use your camera for receipt photos.",
+          "microphonePermission": false
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow Ethos to use your camera for receipt photos and scanning.",
+          "recordAudioAndroid": false,
+          "barcodeScannerEnabled": true
+        }
       ]
     ],
     "experiments": {
@@ -46,10 +79,17 @@
       "reactCompiler": true
     },
     "extra": {
-      "router": {}
+      "router": {},
+      "eas": {
+        "projectId": "426ba72c-533d-4fd5-ae43-5259006f1e11"
+      }
     },
+    "owner": "rorez",
     "runtimeVersion": {
       "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/426ba72c-533d-4fd5-ae43-5259006f1e11"
     }
   }
 }
