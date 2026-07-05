@@ -1,8 +1,13 @@
 import "../global.css";
+import { Suspense } from "react";
 import { ThemeProvider, DefaultTheme, DarkTheme, Stack } from "expo-router";
+import { SQLiteProvider } from "expo-sqlite";
 import { AppThemeProvider, useAppTheme } from "@/components/AppTheme";
+import { AuthProvider } from "@/components/AuthProvider";
 import { CurrencyProvider } from "@/components/CurrencyProvider";
 import { DrawerProvider } from "@/components/DrawerContext";
+import { CashflowDataProvider } from "@/data/cashflow/CashflowDataProvider";
+import { migrateCashflowDatabase } from "@/data/cashflow/schema";
 import { View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
@@ -35,27 +40,47 @@ function RootNavigator() {
   return (
     <View style={{ flex: 1, backgroundColor: appTheme.colors.background }}>
       <ThemeProvider value={themedNavigation}>
-        <CurrencyProvider>
-          <DrawerProvider>
-            <Stack
-              screenOptions={{
-                contentStyle: { backgroundColor: appTheme.colors.background },
-                headerStyle: { backgroundColor: appTheme.colors.background },
-                headerTintColor: appTheme.colors.foreground,
-                headerShadowVisible: false,
-              }}
-            >
-              <Stack.Screen
-                name="profile"
-                options={{
-                  presentation: "modal",
-                  headerLargeTitle: false,
-                  headerTransparent: true,
-                }}
-              />
-            </Stack>
-          </DrawerProvider>
-        </CurrencyProvider>
+        <AuthProvider>
+          <CurrencyProvider>
+          <Suspense fallback={<View style={{ flex: 1, backgroundColor: appTheme.colors.background }} />}>
+            <SQLiteProvider databaseName="ethos-cashflow.db" onInit={migrateCashflowDatabase} useSuspense>
+              <CashflowDataProvider>
+                <DrawerProvider>
+                  <Stack
+                    screenOptions={{
+                      contentStyle: { backgroundColor: appTheme.colors.background },
+                      headerStyle: { backgroundColor: appTheme.colors.background },
+                      headerTintColor: appTheme.colors.foreground,
+                      headerShadowVisible: false,
+                    }}
+                  >
+                    <Stack.Screen
+                      name="auth"
+                      options={{
+                        presentation: "formSheet",
+                        sheetAllowedDetents: "fitToContents",
+                        sheetExpandsWhenScrolledToEdge: false,
+                        headerLargeTitle: false,
+                        headerTransparent: true,
+                        headerStyle: { backgroundColor: "transparent" },
+                        sheetGrabberVisible: true,
+                      }}
+                    />
+                    <Stack.Screen
+                      name="profile"
+                      options={{
+                        presentation: "modal",
+                        headerLargeTitle: false,
+                        headerTransparent: true,
+                      }}
+                    />
+                  </Stack>
+                </DrawerProvider>
+              </CashflowDataProvider>
+            </SQLiteProvider>
+          </Suspense>
+          </CurrencyProvider>
+        </AuthProvider>
       </ThemeProvider>
     </View>
   );

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Alert, View } from "react-native";
+import { router } from "expo-router";
 import { Button, Form, Host, Image, Label, Picker, RNHostView, Section, Slider, Text, Toggle } from "@expo/ui/swift-ui";
 import {
   background,
@@ -18,6 +19,7 @@ import {
   tint,
 } from "@expo/ui/swift-ui/modifiers";
 import { APP_NAME, APP_VERSION } from "@/config/app";
+import { useAuth } from "@/components/AuthProvider";
 import { useAppTheme, type ThemeName } from "@/components/AppTheme";
 import { useCurrency } from "@/components/CurrencyProvider";
 import { ProfileHeader } from "@/components/profile/ProfileHeader";
@@ -28,6 +30,7 @@ const SETTINGS_ICON_SIZE = 15;
 
 export function ProfileContent() {
   const appTheme = useAppTheme();
+  const auth = useAuth();
   const { theme, setTheme } = appTheme;
   const { currency, setCurrency } = useCurrency();
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
@@ -44,12 +47,12 @@ export function ProfileContent() {
 
   useEffect(() => {
     draftTextSizeRef.current = appTheme.textSize;
-    setDraftTextSize(appTheme.textSize);
+    queueMicrotask(() => setDraftTextSize(appTheme.textSize));
   }, [appTheme.textSize]);
 
   useEffect(() => {
     draftTextSpacingRef.current = appTheme.textSpacing;
-    setDraftTextSpacing(appTheme.textSpacing);
+    queueMicrotask(() => setDraftTextSpacing(appTheme.textSpacing));
   }, [appTheme.textSpacing]);
 
   const showMockAction = (title: string) => {
@@ -117,7 +120,14 @@ export function ProfileContent() {
                     paddingTop: profileHeaderVerticalPadding,
                   }}
                 >
-                  <ProfileHeader onUpdatePhoto={() => showMockAction("Update profile picture")} />
+                  <ProfileHeader
+                    avatarUrl={auth.avatarUrl}
+                    avatarSource={auth.avatarSource}
+                    email={auth.email}
+                    initials={auth.initials}
+                    name={auth.displayName}
+                    onUpdatePhoto={() => showMockAction("Update profile picture")}
+                  />
                 </View>
               </RNHostView>
             }
@@ -134,11 +144,22 @@ export function ProfileContent() {
           </Section>
 
           <Section title="Account">
-            <Label
-              title="Profile"
-              icon={<Image systemName="person.crop.circle" size={SETTINGS_ICON_SIZE} color={appTheme.colors.primary} />}
-              modifiers={[...rowModifiers, onTapGesture(() => showMockAction("Personal Information"))]}
-            />
+            {auth.isAuthenticated ? (
+              <Label
+                title={auth.displayName}
+                icon={<Image systemName="person.crop.circle" size={SETTINGS_ICON_SIZE} color={appTheme.colors.primary} />}
+                modifiers={[...rowModifiers, onTapGesture(() => showMockAction("Personal Information"))]}
+              />
+            ) : null}
+            <Button
+              onPress={auth.isAuthenticated ? auth.signOut : () => router.push("/auth")}
+              modifiers={[...rowModifiers, tint(appTheme.colors.primary)]}
+            >
+              <Label
+                title={auth.isAuthenticated ? "Sign Out" : "Sign In"}
+                icon={<Image systemName={auth.isAuthenticated ? "rectangle.portrait.and.arrow.right" : "person.badge.key"} size={SETTINGS_ICON_SIZE} color={appTheme.colors.primary} />}
+              />
+            </Button>
             <Label
               title="Security"
               icon={<Image systemName="lock.shield" size={SETTINGS_ICON_SIZE} color={appTheme.colors.primary} />}

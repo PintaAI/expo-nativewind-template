@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Alert, Pressable, ScrollView, TextInput, View } from "react-native";
+import { Pressable, ScrollView, TextInput, View } from "react-native";
+import { router } from "expo-router";
 import { SymbolView, type SFSymbol } from "expo-symbols";
 import { AppText as RNText } from "@/components/AppText";
 import { useAppTheme } from "@/components/AppTheme";
@@ -363,7 +364,7 @@ export function CashflowTable({ entries, dateFilter, onDateFilterChange, hideTan
                       return;
                     }
 
-                    Alert.alert(entry.name, `${format(entry.nominal)}\n${formatDateKey(entry.date)}\n${entry.createdBy ?? "Unknown"}`);
+                    router.push(`/forms/entry-form?id=${entry.id}`);
                   }}
                   className="flex-row items-center gap-3 rounded-[28px] px-3 py-3"
                   style={{

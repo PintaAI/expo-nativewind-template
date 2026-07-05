@@ -11,7 +11,7 @@ import {
   type StoredTheme,
 } from "@/lib/preferences";
 
-export type ThemeName = "green" | "blue" | (string & {});
+export type ThemeName = "default" | "sweet" | (string & {});
 export type ThemeVars = Record<string, string>;
 export type AppColorScheme = "light" | "dark";
 
@@ -26,7 +26,7 @@ export type ThemeMeta = {
   isCustom: boolean;
 };
 
-const SYSTEM_TEXT_SIZE = 15;
+const SYSTEM_TEXT_SIZE = 17;
 const SYSTEM_TEXT_SPACING = 0;
 
 const textTokenRatios = {
@@ -93,24 +93,24 @@ function createColorTokens(colorVars: ThemeVars, resolvedScheme: AppColorScheme)
   };
 }
 
-const builtInThemes: Record<"green" | "blue", ThemeSet> = {
-  green: {
+const builtInThemes: Record<"default" | "sweet", ThemeSet> = {
+  default: {
     light: {
-      "--color-primary": "#3e4e44",
+      "--color-primary": "#2e3f55",
       "--color-secondary": "#a855f7",
       "--color-muted": "#64748b",
       "--color-background": "#f7fdf9",
       "--color-foreground": "#000000",
     },
     dark: {
-      "--color-primary": "#7bac8d",
+      "--color-primary": "#b6bdca",
       "--color-secondary": "#c084fc",
       "--color-muted": "#a1a1aa",
       "--color-background": "#060d08",
       "--color-foreground": "#ffffff",
     },
   },
-  blue: {
+  sweet: {
     light: {
       "--color-primary": "#3b82f6",
       "--color-secondary": "#8b5cf6",
@@ -129,8 +129,8 @@ const builtInThemes: Record<"green" | "blue", ThemeSet> = {
 };
 
 const builtInThemeMeta: ThemeMeta[] = [
-  { slug: "green", name: "Green", isCustom: false },
-  { slug: "blue", name: "Blue", isCustom: false },
+  { slug: "default", name: "Default", isCustom: false },
+  { slug: "sweet", name: "Sweet", isCustom: false },
 ];
 
 type AppThemeContextValue = ReturnType<typeof createAppThemeValue>;
@@ -156,7 +156,7 @@ function createAppThemeValue(
   const resolvedScheme = colorScheme;
   const textSize = textSizeOverride ?? SYSTEM_TEXT_SIZE;
   const textSpacing = textSpacingOverride ?? SYSTEM_TEXT_SPACING;
-  const colorVars = (allThemes[theme] ?? builtInThemes.green)[resolvedScheme];
+  const colorVars = (allThemes[theme] ?? builtInThemes.default)[resolvedScheme];
   const colors = createColorTokens(colorVars, resolvedScheme);
   const vars = {
     ...createColorVars(colors),
@@ -228,7 +228,7 @@ function createUniqueSlug(name: string, takenSlugs: string[]) {
 }
 
 export function AppThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setTheme] = useState<ThemeName>("green");
+  const [theme, setTheme] = useState<ThemeName>("default");
   const [customThemes, setCustomThemes] = useState<StoredTheme[]>([]);
   const [textSize, setTextSize] = useState<number | null>(null);
   const [textSpacing, setTextSpacing] = useState<number | null>(null);
@@ -252,7 +252,7 @@ export function AppThemeProvider({ children }: { children: ReactNode }) {
       const hasTheme = savedTheme in builtInThemes || savedCustomThemes.some((item) => item.slug === savedTheme);
 
       setCustomThemes(savedCustomThemes);
-      setTheme(hasTheme ? savedTheme : "green");
+      setTheme(hasTheme ? savedTheme : "default");
       setTextSize(savedTextSize);
       setTextSpacing(savedTextSpacing);
     }
@@ -323,7 +323,7 @@ export function AppThemeProvider({ children }: { children: ReactNode }) {
     setCustomThemes(nextCustomThemes);
 
     if (theme === slug) {
-      setPersistedTheme("green");
+      setPersistedTheme("default");
     }
   };
 

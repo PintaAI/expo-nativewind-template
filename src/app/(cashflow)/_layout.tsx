@@ -9,12 +9,16 @@ const formSheetOptions = {
   sheetGrabberVisible: true,
 };
 
+const nestedFormSheetOptions = {
+  ...formSheetOptions,
+  headerShown: false,
+  sheetAllowedDetents: [0.72, 0.92],
+};
+
 const cashflowFormScreens = [
   "entry-form",
-  "wallet",
   "transfer",
   "categories",
-  "budget",
   "automatic-entry",
   "quick-fill",
   "reminder",
@@ -32,6 +36,7 @@ export default function CashflowLayout() {
         }}
       >
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="forms/wallet" options={nestedFormSheetOptions} />
         {cashflowFormScreens.map((screen) => (
           <Stack.Screen key={screen} name={`forms/${screen}`} options={formSheetOptions} />
         ))}

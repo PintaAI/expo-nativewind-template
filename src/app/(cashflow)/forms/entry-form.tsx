@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef, type ReactNode } from "react";
-import { Animated, Modal, Pressable, ScrollView, TextInput as RNTextInput, View, useWindowDimensions } from "react-native";
-import { Stack } from "expo-router";
+import { useState, useEffect, useMemo, useRef, useCallback, type ReactNode } from "react";
+import { Alert, Animated, Modal, Platform, Pressable, ScrollView, TextInput as RNTextInput, View, useWindowDimensions } from "react-native";
+import { router, Stack, useLocalSearchParams, type Href } from "expo-router";
 import { AppText as Text } from "@/components/AppText";
 import * as Haptics from "expo-haptics";
 import SegmentedControl from "@expo/ui/community/segmented-control";
@@ -8,7 +8,10 @@ import DateTimePicker from "@expo/ui/community/datetime-picker";
 import { SymbolView, type SFSymbol } from "expo-symbols";
 import { GlassView } from "expo-glass-effect";
 import { useAppTheme } from "@/components/AppTheme";
+import { useCashflowData } from "@/data/cashflow/CashflowDataProvider";
 import { alpha } from "@/lib/color";
+import { toDateKey, parseDateKey } from "@/lib/date";
+import { getPreference, setPreference } from "@/lib/preferences";
 
 const QUICK_FILLS = ["Kopi", "Makan siang", "Parkir", "Grab", "Token listrik"];
 const DENOMINATIONS = [
@@ -24,24 +27,46 @@ const DATE_OPTIONS = [
   { label: "Kemaren", daysAgo: 1 },
   { label: "Tanggal" },
 ];
-const CATEGORIES = [
-  { name: "Makanan", symbol: "fork.knife" as SFSymbol, color: "#ca8a04" },
-  { name: "Transport", symbol: "car.fill" as SFSymbol, color: "#ea580c" },
-  { name: "Belanja", symbol: "basket.fill" as SFSymbol, color: "#dc2626" },
-  { name: "Tagihan", symbol: "bolt.fill" as SFSymbol, color: "#2563eb" },
+const FALLBACK_CATEGORIES = [
+  { id: null, name: "Makanan", symbol: "fork.knife" as SFSymbol, color: "#ca8a04" },
+  { id: null, name: "Transport", symbol: "car.fill" as SFSymbol, color: "#ea580c" },
+  { id: null, name: "Belanja", symbol: "basket.fill" as SFSymbol, color: "#dc2626" },
+  { id: null, name: "Tagihan", symbol: "bolt.fill" as SFSymbol, color: "#2563eb" },
 ];
 
-const INITIAL_CATEGORY_INDEX = Math.floor((CATEGORIES.length - 1) / 2);
-const LOOPED_CATEGORIES = [...CATEGORIES, ...CATEGORIES, ...CATEGORIES];
-const LOOP_START_INDEX = CATEGORIES.length;
-const LOOP_END_INDEX = LOOP_START_INDEX + CATEGORIES.length - 1;
-const INITIAL_LOOP_INDEX = LOOP_START_INDEX + INITIAL_CATEGORY_INDEX;
 const CATEGORY_CHIP_WIDTH = 94;
 const CATEGORY_CHIP_GAP = 8;
 const CATEGORY_CHIP_SNAP = CATEGORY_CHIP_WIDTH + CATEGORY_CHIP_GAP;
-const CATEGORY_SNAP_OFFSETS = LOOPED_CATEGORIES.map((_, index) => index * CATEGORY_CHIP_SNAP);
 const WEEKDAYS = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"];
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
+
+type WheelPickerFeedbackModule = {
+  triggerSoundAndImpact: () => void;
+};
+
+let wheelPickerFeedbackModule: WheelPickerFeedbackModule | null = null;
+let wheelPickerFeedbackLoadPromise: Promise<void> | null = null;
+
+function loadNativeWheelPickerFeedback() {
+  if (Platform.OS !== "ios" || wheelPickerFeedbackLoadPromise) return;
+
+  wheelPickerFeedbackLoadPromise = import("@quidone/react-native-wheel-picker-feedback")
+    .then((module) => {
+      wheelPickerFeedbackModule = module.default;
+    })
+    .catch(() => {
+      wheelPickerFeedbackModule = null;
+    });
+}
+
+function triggerNativeWheelPickerFeedback() {
+  if (Platform.OS !== "ios") return false;
+  if (!wheelPickerFeedbackModule) loadNativeWheelPickerFeedback();
+
+  if (!wheelPickerFeedbackModule) return false;
+  wheelPickerFeedbackModule.triggerSoundAndImpact();
+  return true;
+}
 
 function FormSymbol({ name, color, size = 16 }: { name: SFSymbol; color: string; size?: number }) {
   return <SymbolView name={name} size={size} tintColor={color} fallback={<Text style={{ color }}>•</Text>} />;
@@ -55,7 +80,7 @@ function formatAmountDigits(value: string) {
   return value.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 }
 
-function getCategoryIndexFromOffset(offsetX: number, snapWidth: number, maxIndex = CATEGORIES.length - 1) {
+function getCategoryIndexFromOffset(offsetX: number, snapWidth: number, maxIndex: number) {
   return Math.min(Math.max(Math.round(offsetX / snapWidth), 0), maxIndex);
 }
 
@@ -93,13 +118,14 @@ function QuickAmountStrip({ onAmount }: { onAmount: (value: number) => void }) {
   );
 }
 
-function QuickFillChip({ label }: { label: string }) {
+function QuickFillChip({ label, onPress }: { label: string; onPress: () => void }) {
   const appTheme = useAppTheme();
   const borderColor = appTheme.isDark ? "rgba(255,255,255,0.12)" : "rgba(15,23,42,0.1)";
 
   return (
     <Pressable
       accessibilityRole="button"
+      onPress={onPress}
       className="min-h-9 flex-row items-center gap-1.5 rounded-full border px-3"
       style={{
         backgroundColor: appTheme.isDark ? "rgba(255,255,255,0.035)" : "rgba(255,255,255,0.45)",
@@ -165,63 +191,137 @@ function Section({ title, overflowVisible, borderless, children }: { title?: str
 
 export default function EntryForm() {
   const appTheme = useAppTheme();
+  const { id } = useLocalSearchParams<{ id?: string }>();
+  const isEditing = !!id;
+  const { categories, quickFills, entries, createEntry, updateEntry } = useCashflowData();
+  const editingEntry = useMemo(
+    () => (id ? entries.find((e) => e.id === id) ?? null : null),
+    [id, entries],
+  );
+  const categoryOptions = useMemo(
+    () => categories.length > 0
+      ? categories.map((category) => ({
+          id: category.id,
+          name: category.name,
+          symbol: (category.icon ?? "tag.fill") as SFSymbol,
+          color: category.color ?? appTheme.colors.primary,
+        }))
+      : FALLBACK_CATEGORIES,
+    [appTheme.colors.primary, categories],
+  );
+  const initialCategoryIndex = Math.floor((categoryOptions.length - 1) / 2);
+  const addCategoryIndex = categoryOptions.length;
+  const categorySnapOffsets = [...categoryOptions.map((_, index) => index * CATEGORY_CHIP_SNAP), addCategoryIndex * CATEGORY_CHIP_SNAP];
   const [ioIndex, setIoIndex] = useState(1);
   const [dateIndex, setDateIndex] = useState(0);
-  const [categoryIndex, setCategoryIndex] = useState(INITIAL_CATEGORY_INDEX);
+  const [categoryIndex, setCategoryIndex] = useState(initialCategoryIndex);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [customDate, setCustomDate] = useState<Date | null>(null);
   const [amountText, setAmountText] = useState("");
   const [noteText, setNoteText] = useState("");
-  const controlFill = appTheme.isDark ? "rgba(255,255,255,0.075)" : "rgba(15,23,42,0.045)";
   const { width: screenWidth } = useWindowDimensions();
   const scrollRef = useRef<ScrollView>(null);
   const carouselW = Math.max(screenWidth - 32, CATEGORY_CHIP_WIDTH);
   const sidePad = carouselW / 2 - CATEGORY_CHIP_WIDTH / 2;
-  const scrollX = useRef(new Animated.Value(INITIAL_LOOP_INDEX * CATEGORY_CHIP_SNAP)).current;
-  const lastSnappedRef = useRef(INITIAL_LOOP_INDEX);
-  const categoryIndexRef = useRef(INITIAL_CATEGORY_INDEX);
+  const [scrollX] = useState(() => new Animated.Value(initialCategoryIndex * CATEGORY_CHIP_SNAP));
+  const lastSnappedRef = useRef(initialCategoryIndex);
+  const categoryIndexRef = useRef(initialCategoryIndex);
+
+  const selectCategory = (nextIndex: number, animated = true) => {
+    if (nextIndex < 0 || nextIndex >= categoryOptions.length) return;
+
+    lastSnappedRef.current = nextIndex;
+    categoryIndexRef.current = nextIndex;
+    setCategoryIndex(nextIndex);
+    setPreference("cashflowCategoryIndex", nextIndex).catch(() => {});
+    scrollRef.current?.scrollTo({ x: nextIndex * CATEGORY_CHIP_SNAP, animated });
+  };
+
+  const playFeedback = useCallback((feedback: "impact" | "selection" = "impact") => {
+    if (triggerNativeWheelPickerFeedback()) return;
+
+    const haptic = feedback === "selection"
+      ? Haptics.selectionAsync()
+      : Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Rigid);
+
+    haptic.catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    loadNativeWheelPickerFeedback();
+  }, []);
+
+  useEffect(() => {
+    if (!editingEntry || categoryOptions.length === 0) return;
+    let cancelled = false;
+
+    queueMicrotask(() => {
+      if (cancelled) return;
+
+      setIoIndex(editingEntry.io === "Income" ? 0 : 1);
+      setAmountText(String(editingEntry.nominal));
+      setNoteText(editingEntry.name);
+
+      if (editingEntry.date === toDateKey(getDateDaysAgo(0))) {
+        setDateIndex(0);
+        setCustomDate(null);
+      } else if (editingEntry.date === toDateKey(getDateDaysAgo(1))) {
+        setDateIndex(1);
+        setCustomDate(null);
+      } else {
+        setDateIndex(2);
+        setCustomDate(parseDateKey(editingEntry.date));
+      }
+
+      if (editingEntry.category) {
+        const normalizedCategory = editingEntry.category.trim().toLowerCase();
+        const idx = categoryOptions.findIndex((c) => c.name.trim().toLowerCase() === normalizedCategory);
+        if (idx >= 0) {
+          const nextOffset = idx * CATEGORY_CHIP_SNAP;
+          categoryIndexRef.current = idx;
+          lastSnappedRef.current = idx;
+          setCategoryIndex(idx);
+          scrollX.setValue(nextOffset);
+          requestAnimationFrame(() => {
+            scrollRef.current?.scrollTo({ x: nextOffset, animated: false });
+          });
+        }
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [editingEntry, categoryOptions, scrollX]);
 
   useEffect(() => {
     const id = scrollX.addListener(({ value }) => {
-      const nextLoopIndex = getCategoryIndexFromOffset(value, CATEGORY_CHIP_SNAP, LOOPED_CATEGORIES.length - 1);
-      if (nextLoopIndex === lastSnappedRef.current) {
+      const nextIndex = getCategoryIndexFromOffset(value, CATEGORY_CHIP_SNAP, addCategoryIndex);
+      if (nextIndex === lastSnappedRef.current) {
         return;
       }
 
-      const nextIndex = nextLoopIndex % CATEGORIES.length;
-
-      lastSnappedRef.current = nextLoopIndex;
-      if (nextIndex !== categoryIndexRef.current) {
+      lastSnappedRef.current = nextIndex;
+      if (nextIndex < categoryOptions.length && nextIndex !== categoryIndexRef.current) {
         categoryIndexRef.current = nextIndex;
         setCategoryIndex(nextIndex);
-        Haptics.selectionAsync().catch(() => {});
       }
+      playFeedback("selection");
     });
     return () => scrollX.removeListener(id);
-  }, [scrollX]);
+  }, [addCategoryIndex, categoryOptions.length, playFeedback, scrollX]);
 
   const settleCategory = (offsetX: number, animated = false) => {
-    let nextLoopIndex = getCategoryIndexFromOffset(offsetX, CATEGORY_CHIP_SNAP, LOOPED_CATEGORIES.length - 1);
-    const nextIndex = nextLoopIndex % CATEGORIES.length;
+    const nextIndex = getCategoryIndexFromOffset(offsetX, CATEGORY_CHIP_SNAP, addCategoryIndex);
 
-    if (nextLoopIndex < LOOP_START_INDEX || nextLoopIndex > LOOP_END_INDEX) {
-      nextLoopIndex = LOOP_START_INDEX + nextIndex;
-      lastSnappedRef.current = nextLoopIndex;
-      if (nextIndex !== categoryIndexRef.current) {
-        categoryIndexRef.current = nextIndex;
-        setCategoryIndex(nextIndex);
-      }
-      scrollRef.current?.scrollTo({ x: nextLoopIndex * CATEGORY_CHIP_SNAP, animated: false });
-      return;
-    }
-
-    lastSnappedRef.current = nextLoopIndex;
-    if (nextIndex !== categoryIndexRef.current) {
+    lastSnappedRef.current = nextIndex;
+    if (nextIndex < categoryOptions.length && nextIndex !== categoryIndexRef.current) {
       categoryIndexRef.current = nextIndex;
       setCategoryIndex(nextIndex);
+      setPreference("cashflowCategoryIndex", nextIndex).catch(() => {});
     }
 
-    const nextOffsetX = nextLoopIndex * CATEGORY_CHIP_SNAP;
+    const nextOffsetX = nextIndex * CATEGORY_CHIP_SNAP;
     if (animated || Math.abs(offsetX - nextOffsetX) > 0.5) {
       scrollRef.current?.scrollTo({ x: nextOffsetX, animated });
     }
@@ -232,28 +332,113 @@ export default function EntryForm() {
   };
 
   const clearForm = () => {
+    if (editingEntry) {
+      setIoIndex(editingEntry.io === "Income" ? 0 : 1);
+      setAmountText(String(editingEntry.nominal));
+      setNoteText(editingEntry.name);
+
+      if (editingEntry.date === toDateKey(getDateDaysAgo(0))) {
+        setDateIndex(0);
+        setCustomDate(null);
+      } else if (editingEntry.date === toDateKey(getDateDaysAgo(1))) {
+        setDateIndex(1);
+        setCustomDate(null);
+      } else {
+        setDateIndex(2);
+        setCustomDate(parseDateKey(editingEntry.date));
+      }
+
+      if (editingEntry.category) {
+        const idx = categoryOptions.findIndex((c) => c.name === editingEntry.category);
+        if (idx >= 0) {
+          const nextOffset = idx * CATEGORY_CHIP_SNAP;
+          categoryIndexRef.current = idx;
+          lastSnappedRef.current = idx;
+          setCategoryIndex(idx);
+          scrollX.setValue(nextOffset);
+          scrollRef.current?.scrollTo({ x: nextOffset, animated: true });
+        }
+      }
+      return;
+    }
+
     setDateIndex(0);
     setCustomDate(null);
     setAmountText("");
     setNoteText("");
-    lastSnappedRef.current = INITIAL_LOOP_INDEX;
-    categoryIndexRef.current = INITIAL_CATEGORY_INDEX;
-    setCategoryIndex(INITIAL_CATEGORY_INDEX);
-    scrollRef.current?.scrollTo({ x: INITIAL_LOOP_INDEX * CATEGORY_CHIP_SNAP, animated: true });
+    lastSnappedRef.current = initialCategoryIndex;
+    categoryIndexRef.current = initialCategoryIndex;
+    setCategoryIndex(initialCategoryIndex);
+    scrollRef.current?.scrollTo({ x: initialCategoryIndex * CATEGORY_CHIP_SNAP, animated: true });
+  };
+
+  const handleSave = async () => {
+    const nominal = parseInt(amountText, 10) || 0;
+    if (nominal <= 0) {
+      Alert.alert("Amount required", "Enter an amount before saving this entry.");
+      return;
+    }
+
+    const selectedCategory = categoryOptions[categoryIndex] ?? categoryOptions[0];
+    const selectedDateOption = DATE_OPTIONS[dateIndex];
+    const entryDate = selectedDateOption?.daysAgo !== undefined
+      ? toDateKey(getDateDaysAgo(selectedDateOption.daysAgo))
+      : toDateKey(customDate ?? new Date());
+
+    const io: "Income" | "Expenses" = ioIndex === 0 ? "Income" : "Expenses";
+    const payload = {
+      name: noteText.trim() || selectedCategory.name,
+      nominal,
+      categoryId: selectedCategory.id,
+      date: entryDate,
+      io,
+    };
+
+    if (isEditing && id) {
+      await updateEntry(id, payload);
+    } else {
+      await createEntry(payload);
+    }
+
+    clearForm();
+    router.back();
   };
 
   useEffect(() => {
-    const frame = requestAnimationFrame(() => {
-      scrollRef.current?.scrollTo({ x: INITIAL_LOOP_INDEX * CATEGORY_CHIP_SNAP, animated: false });
+    if (isEditing) return;
+
+    let cancelled = false;
+    let frame: ReturnType<typeof requestAnimationFrame> | null = null;
+
+    getPreference("cashflowCategoryIndex").then((savedIndex) => {
+      if (cancelled) return;
+
+      const nextIndex = savedIndex === null
+        ? initialCategoryIndex
+        : Math.min(Math.max(savedIndex, 0), categoryOptions.length - 1);
+
+      frame = requestAnimationFrame(() => {
+        if (cancelled) return;
+
+        const nextOffset = nextIndex * CATEGORY_CHIP_SNAP;
+        lastSnappedRef.current = nextIndex;
+        categoryIndexRef.current = nextIndex;
+        setCategoryIndex(nextIndex);
+        scrollX.setValue(nextOffset);
+        scrollRef.current?.scrollTo({ x: nextOffset, animated: false });
+      });
     });
 
-    return () => cancelAnimationFrame(frame);
-  }, []);
+    return () => {
+      cancelled = true;
+      if (frame !== null) cancelAnimationFrame(frame);
+    };
+  }, [categoryOptions.length, initialCategoryIndex, isEditing, scrollX]);
 
   return (
     <>
-      <Stack.Screen options={{ title: "Entry" }} />
-      <Stack.Toolbar placement="right">
+      <Stack.Screen options={{ title: isEditing ? "Edit" : "" }} />
+      <Stack.Toolbar placement="left">
         <Stack.Toolbar.View hidesSharedBackground>
           <SegmentedControl
             values={["Income", "Expense"]}
@@ -265,8 +450,11 @@ export default function EntryForm() {
           />
         </Stack.Toolbar.View>
       </Stack.Toolbar>
-      <Stack.Toolbar placement="left">
+      <Stack.Toolbar placement="right">
         <Stack.Toolbar.Button icon="eraser" onPress={clearForm} />
+        <Stack.Toolbar.Button icon="checkmark" onPress={handleSave} variant="done">
+          Simpan
+        </Stack.Toolbar.Button>
       </Stack.Toolbar>
       <Stack.Toolbar placement="bottom">
         <Stack.Toolbar.View hidesSharedBackground>
@@ -274,11 +462,11 @@ export default function EntryForm() {
             isInteractive
             tintColor={alpha(appTheme.colors.primary, appTheme.isDark ? 0.35 : 0.18)}
             glassEffectStyle="clear"
-            style={{
-              borderRadius: 9999,
-              height: 50,
-              width: Math.max(160, screenWidth - 112),
-            }}
+              style={{
+                borderRadius: 9999,
+                height: 40,
+                width: Math.max(220, screenWidth - 32),
+              }}
           >
             {noteText.length === 0 ? (
               <View pointerEvents="none" className="absolute inset-0 justify-center px-3.5">
@@ -294,7 +482,7 @@ export default function EntryForm() {
               style={{
                 color: appTheme.colors.foreground,
                 fontSize: 16,
-                height: 50,
+                height: 40,
                 includeFontPadding: false,
                 paddingHorizontal: 14,
                 paddingVertical: 0,
@@ -303,9 +491,6 @@ export default function EntryForm() {
             />
           </GlassView>
         </Stack.Toolbar.View>
-        <Stack.Toolbar.Button icon="checkmark" onPress={() => {}} variant="done">
-          Simpan
-        </Stack.Toolbar.Button>
       </Stack.Toolbar>
       <ScrollView
         className="bg-[--app-color-background] flex-1"
@@ -326,15 +511,30 @@ export default function EntryForm() {
               onChangeText={(text) => setAmountText(text.replace(/\D/g, ""))}
             />
           </View>
+          {noteText.trim() ? (
+            <Text className="text-base font-medium" style={{ color: appTheme.colors.muted }}>
+              {noteText.trim()}
+            </Text>
+          ) : null}
         </View>
 
         <Section overflowVisible borderless>
           <View className="gap-3 px-4 pt-3 pb-3">
             <QuickAmountStrip onAmount={addQuickAmount} />
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ overflow: "visible" }} contentContainerStyle={{ gap: 8 }}>
-              {QUICK_FILLS.map((label) => (
-                <QuickFillChip key={label} label={label} />
+              {(quickFills.length > 0 ? quickFills : QUICK_FILLS.map((label) => ({ id: label, label, amount: null, categoryId: null }))).map((quickFill) => (
+                <QuickFillChip
+                  key={quickFill.id}
+                  label={quickFill.label}
+                  onPress={() => {
+                    if (quickFill.amount) setAmountText(String(quickFill.amount));
+                    setNoteText(quickFill.label);
+                    const nextCategoryIndex = categoryOptions.findIndex((category) => category.id === quickFill.categoryId);
+                    if (nextCategoryIndex >= 0) selectCategory(nextCategoryIndex);
+                  }}
+                />
               ))}
+              <QuickFillChip label="Tambah" onPress={() => router.push("/forms/quick-fill" as Href)} />
             </ScrollView>
           </View>
           <View className="h-px" style={{ backgroundColor: appTheme.isDark ? "rgba(255,255,255,0.09)" : "rgba(15,23,42,0.08)" }} />
@@ -347,7 +547,7 @@ export default function EntryForm() {
               overScrollMode="never"
               removeClippedSubviews={false}
               showsHorizontalScrollIndicator={false}
-              snapToOffsets={CATEGORY_SNAP_OFFSETS}
+              snapToOffsets={categorySnapOffsets}
               decelerationRate="fast"
               scrollEventThrottle={16}
               style={{ overflow: "visible" }}
@@ -362,26 +562,20 @@ export default function EntryForm() {
               }}
               contentContainerStyle={{ paddingHorizontal: sidePad }}
             >
-              {LOOPED_CATEGORIES.map((item, index) => {
-                const realIndex = index % CATEGORIES.length;
-                const sel = categoryIndex === realIndex;
+              {categoryOptions.map((item, index) => {
+                const sel = categoryIndex === index;
                 const inputRange = [(index - 1) * CATEGORY_CHIP_SNAP, index * CATEGORY_CHIP_SNAP, (index + 1) * CATEGORY_CHIP_SNAP];
                 const scale = scrollX.interpolate({ inputRange, outputRange: [0.9, 1.08, 0.9], extrapolate: "clamp" });
                 const translateY = scrollX.interpolate({ inputRange, outputRange: [5, -2, 5], extrapolate: "clamp" });
                 const opacity = scrollX.interpolate({ inputRange, outputRange: [0.68, 1, 0.68], extrapolate: "clamp" });
 
                 return (
-                  <Animated.View key={`${item.name}-${index}`} style={{ marginRight: index === LOOPED_CATEGORIES.length - 1 ? 0 : CATEGORY_CHIP_GAP, opacity, transform: [{ translateY }, { scale }] }}>
+                  <Animated.View key={item.name} style={{ marginRight: CATEGORY_CHIP_GAP, opacity, transform: [{ translateY }, { scale }] }}>
                     <Pressable
                       accessibilityRole="button"
                       onPress={() => {
-                        const targetIndex = LOOP_START_INDEX + realIndex;
-                        lastSnappedRef.current = targetIndex;
-                        if (realIndex !== categoryIndexRef.current) {
-                          categoryIndexRef.current = realIndex;
-                          setCategoryIndex(realIndex);
-                        }
-                        scrollRef.current?.scrollTo({ x: targetIndex * CATEGORY_CHIP_SNAP, animated: true });
+                        playFeedback();
+                        scrollRef.current?.scrollTo({ x: index * CATEGORY_CHIP_SNAP, animated: true });
                       }}
                       className="items-center justify-center rounded-2xl"
                       style={{
@@ -398,9 +592,56 @@ export default function EntryForm() {
                   </Animated.View>
                 );
               })}
+              <Animated.View
+                style={{
+                  opacity: scrollX.interpolate({
+                    inputRange: [(addCategoryIndex - 1) * CATEGORY_CHIP_SNAP, addCategoryIndex * CATEGORY_CHIP_SNAP, (addCategoryIndex + 1) * CATEGORY_CHIP_SNAP],
+                    outputRange: [0.68, 1, 0.68],
+                    extrapolate: "clamp",
+                  }),
+                  transform: [
+                    {
+                      translateY: scrollX.interpolate({
+                        inputRange: [(addCategoryIndex - 1) * CATEGORY_CHIP_SNAP, addCategoryIndex * CATEGORY_CHIP_SNAP, (addCategoryIndex + 1) * CATEGORY_CHIP_SNAP],
+                        outputRange: [5, -2, 5],
+                        extrapolate: "clamp",
+                      }),
+                    },
+                    {
+                      scale: scrollX.interpolate({
+                        inputRange: [(addCategoryIndex - 1) * CATEGORY_CHIP_SNAP, addCategoryIndex * CATEGORY_CHIP_SNAP, (addCategoryIndex + 1) * CATEGORY_CHIP_SNAP],
+                        outputRange: [0.9, 1.08, 0.9],
+                        extrapolate: "clamp",
+                      }),
+                    },
+                  ],
+                  width: CATEGORY_CHIP_WIDTH,
+                }}
+              >
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => {
+                    playFeedback();
+                    scrollRef.current?.scrollTo({ x: addCategoryIndex * CATEGORY_CHIP_SNAP, animated: true });
+                    router.push("/forms/categories" as Href);
+                  }}
+                  className="items-center justify-center rounded-2xl border border-dashed"
+                  style={{
+                    width: CATEGORY_CHIP_WIDTH,
+                    paddingVertical: 13,
+                    borderColor: alpha(appTheme.colors.primary, 0.45),
+                    backgroundColor: alpha(appTheme.colors.primary, appTheme.isDark ? 0.13 : 0.08),
+                  }}
+                >
+                  <FormSymbol name="plus" color={appTheme.colors.primary} size={20} />
+                  <Text className="mt-1 text-xs font-semibold" style={{ color: appTheme.colors.primary }}>
+                    Kategori
+                  </Text>
+                </Pressable>
+              </Animated.View>
             </Animated.ScrollView>
             <View className="flex-row justify-center gap-1.5 pt-2">
-              {CATEGORIES.map((item, index) => (
+              {categoryOptions.map((item, index) => (
                 <View
                   key={item.name}
                   className="rounded-full"
@@ -433,7 +674,7 @@ export default function EntryForm() {
               selected={dateIndex === index}
               onPress={() => {
                 if (dateIndex !== index) {
-                  Haptics.selectionAsync().catch(() => {});
+                  playFeedback("selection");
                 }
                 setDateIndex(index);
                 if (option.daysAgo === undefined) {

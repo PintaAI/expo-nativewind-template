@@ -43,21 +43,21 @@
   --app-color-positive: #16a34a;
   --app-color-negative: #dc2626;
 
-  --app-text-xs: 0.7425rem;
-  --app-text-sm: 0.86625rem;
-  --app-text-base: 0.99rem;
-  --app-text-lg: 1.125rem;
-  --app-text-xl: 1.2375rem;
-  --app-text-2xl: 1.485rem;
-  --app-text-3xl: 1.85625rem;
-  --app-text-4xl: 2.2275rem;
-  --app-text-5xl: 2.97rem;
-  --app-text-6xl: 3.7125rem;
+  --app-text-xs: 12.75px;
+  --app-text-sm: 14.875px;
+  --app-text-base: 17px;
+  --app-text-lg: 19.318px;
+  --app-text-xl: 21.25px;
+  --app-text-2xl: 25.5px;
+  --app-text-3xl: 31.875px;
+  --app-text-4xl: 38.25px;
+  --app-text-5xl: 51px;
+  --app-text-6xl: 63.75px;
 
-  --app-tracking-tighter: -0.045em;
-  --app-tracking-tight: -0.0225em;
-  --app-tracking-normal: 0em;
-  --app-tracking-wide: 0.0225em;
-  --app-tracking-wider: 0.045em;
-  --app-tracking-widest: 0.09em;
+  --app-tracking-tighter: -0.8px;
+  --app-tracking-tight: -0.4px;
+  --app-tracking-normal: 0px;
+  --app-tracking-wide: 0.4px;
+  --app-tracking-wider: 0.8px;
+  --app-tracking-widest: 1.6px;
 }

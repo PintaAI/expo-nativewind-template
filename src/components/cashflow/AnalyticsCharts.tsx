@@ -1,6 +1,6 @@
-import { useState, useMemo } from "react";
+import { useRef, useState, useMemo } from "react";
 import type React from "react";
-import { Pressable, ScrollView, View } from "react-native";
+import { Pressable, ScrollView, View, type ScrollView as ScrollViewType } from "react-native";
 import { SymbolView, type SFSymbol } from "expo-symbols";
 import Svg, { Circle, G } from "react-native-svg";
 import { AppText as RNText } from "@/components/AppText";
@@ -9,10 +9,11 @@ import { useCurrency } from "@/components/CurrencyProvider";
 
 import { alpha } from "@/lib/color";
 import { toDateKey } from "@/lib/date";
+import type { CashflowAnalytics } from "@/data/cashflow/types";
 
 // ─── Types ───────────────────────────────────────────────
 
-type DatePeriod = { label: string; from?: string; to?: string; allTime?: boolean };
+export type DatePeriod = { label: string; from?: string; to?: string; allTime?: boolean };
 
 type Filters = {
   from?: string;
@@ -23,7 +24,21 @@ type Filters = {
 type CategoryAnalytics = { category: string; color?: string; total: number; count: number; percentage: number };
 type MonthlyAnalytics = { month: string; monthLabel: string; income: number; expenses: number };
 type CreatorAnalytics = { name: string | null; totalIncome: number; totalExpenses: number; entryCount: number };
-type AnalyticsData = {
+type AnalyticsData = CashflowAnalytics;
+type MonthHighlight = "all" | string[];
+
+type AnalyticsChartsProps = {
+  header?: React.ReactNode;
+  hideStats?: boolean;
+  data?: AnalyticsData;
+  monthlyTrendData?: MonthlyAnalytics[];
+  datePeriod?: DatePeriod;
+  onDatePeriodChange?: (period: DatePeriod) => void;
+  selectedMonth?: Date;
+  onSelectedMonthChange?: (month: Date) => void;
+};
+
+type MockAnalyticsData = {
   summary: { totalIncome: number; totalExpenses: number; balance: number; entryCount: number };
   byCategory: CategoryAnalytics[];
   byMonth: MonthlyAnalytics[];
@@ -36,9 +51,17 @@ function ChartSymbol({ name, color, size = 14 }: { name: SFSymbol; color: string
   return <SymbolView name={name} size={size} tintColor={color} fallback={<RNText style={{ color }}>•</RNText>} />;
 }
 
+function monthKeyFromDate(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function recentMonthKeys(anchor: Date, count: number) {
+  return Array.from({ length: count }, (_, index) => monthKeyFromDate(new Date(anchor.getFullYear(), anchor.getMonth() - index, 1))).reverse();
+}
+
 // ─── Mock Data ────────────────────────────────────────────
 
-function createMockAnalytics(filters: Filters): AnalyticsData {
+function createMockAnalytics(filters: Filters): MockAnalyticsData {
   const allMonths = Array.from({ length: 6 }, (_, i) => {
     const d = new Date(2026, 0 + i, 1);
     return { month: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`, monthLabel: d.toLocaleDateString("id-ID", { month: "short", year: "numeric" }) };
@@ -106,7 +129,7 @@ function FilterChip({ label, active, onPress }: { label: string; active: boolean
   );
 }
 
-const DATE_PRESETS: DatePeriod[] = [
+export const DATE_PRESETS: DatePeriod[] = [
   { label: "All time", allTime: true },
   { label: "Today", from: toDateKey(new Date()), to: toDateKey(new Date()) },
   { label: "7 days", from: toDateKey(new Date(Date.now() - 6 * 86400000)), to: toDateKey(new Date()) },
@@ -118,12 +141,13 @@ const DATE_PRESETS: DatePeriod[] = [
 
 // ─── Monthly Trend Bar Chart ──────────────────────────────
 
-function BarChart({ data }: { data: MonthlyAnalytics[] }) {
+function BarChart({ data, highlightedMonths, onMonthPress }: { data: MonthlyAnalytics[]; highlightedMonths?: MonthHighlight; onMonthPress?: (month: string) => void }) {
   const appTheme = useAppTheme();
   const { format } = useCurrency();
+  const scrollViewRef = useRef<ScrollViewType>(null);
   const positive = appTheme.colors.positive;
   const negative = appTheme.colors.negative;
-  const months = data.slice(-5);
+  const months = data.slice(-12);
   const maxVal = Math.max(...months.map((d) => d.income + d.expenses), 1);
   const height = (value: number) => Math.max(4, (value / maxVal) * 150);
   const bar = { width: 24 };
@@ -138,19 +162,31 @@ function BarChart({ data }: { data: MonthlyAnalytics[] }) {
           </View>
         ))}
       </View>
-      <View className="flex-row items-end" style={{ height: 220 }}>
-        {months.map((d) => (
-          <View key={d.month} className="flex-1 items-center gap-1.5">
-            <RNText className="text-xs" style={{ color: appTheme.colors.muted }}>{format(d.income, { compact: true })}</RNText>
-            <View style={{ ...bar, height: height(d.income), backgroundColor: positive, borderTopLeftRadius: 999, borderTopRightRadius: 999, borderBottomLeftRadius: 50, borderBottomRightRadius: 50 }} />
-            <View style={{ ...bar, height: height(d.expenses), backgroundColor: negative, borderTopLeftRadius: 50, borderTopRightRadius: 50, borderBottomLeftRadius: 999, borderBottomRightRadius: 999 }} />
-            <RNText className="text-xs" style={{ color: appTheme.colors.muted }}>{format(d.expenses, { compact: true })}</RNText>
-            <View className="w-full items-center">
-              <RNText numberOfLines={1} className="text-xs text-center" style={{ color: appTheme.colors.muted }}>{d.monthLabel}</RNText>
+      <ScrollView
+        ref={scrollViewRef}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerClassName="items-end gap-3 pr-1"
+        style={{ height: 220 }}
+        onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: false })}
+      >
+        {months.map((d) => {
+          const isSelected = highlightedMonths === "all" || Boolean(highlightedMonths?.includes(d.month));
+          const labelColor = isSelected ? appTheme.colors.primary : appTheme.colors.muted;
+
+          return (
+          <Pressable key={d.month} onPress={() => onMonthPress?.(d.month)} className="w-[58px] items-center gap-1.5">
+            <RNText className="text-xs" style={{ color: labelColor }}>{format(d.income, { compact: true })}</RNText>
+            <View style={{ ...bar, height: height(d.income), backgroundColor: positive, opacity: isSelected ? 1 : 0.45, borderTopLeftRadius: 999, borderTopRightRadius: 999, borderBottomLeftRadius: 50, borderBottomRightRadius: 50 }} />
+            <View style={{ ...bar, height: height(d.expenses), backgroundColor: negative, opacity: isSelected ? 1 : 0.45, borderTopLeftRadius: 50, borderTopRightRadius: 50, borderBottomLeftRadius: 999, borderBottomRightRadius: 999 }} />
+            <RNText className="text-xs" style={{ color: labelColor }}>{format(d.expenses, { compact: true })}</RNText>
+            <View className="w-full items-center rounded-full px-1.5 py-0.5" style={{ backgroundColor: isSelected ? alpha(appTheme.colors.primary, 0.12) : "transparent" }}>
+              <RNText numberOfLines={1} className="text-xs text-center" style={{ color: labelColor, fontWeight: isSelected ? "700" : "400" }}>{d.monthLabel}</RNText>
             </View>
-          </View>
-        ))}
-      </View>
+          </Pressable>
+          );
+        })}
+      </ScrollView>
     </View>
   );
 }
@@ -169,7 +205,18 @@ function CategoryDonut({ data }: { data: CategoryAnalytics[] }) {
   const trackColor = appTheme.isDark ? "rgba(255,255,255,0.07)" : "rgba(15,23,42,0.06)";
   const centerColor = appTheme.isDark ? "rgba(255,255,255,0.045)" : "rgba(15,23,42,0.035)";
   const total = data.reduce((sum, category) => sum + category.total, 0);
-  let progress = 0;
+  const segments = data.reduce<{
+    progress: number;
+    items: { category: CategoryAnalytics; dash: number; strokeDashoffset: number }[];
+  }>((acc, category) => {
+    const share = total > 0 ? category.total / total : 0;
+    const dash = Math.max(0, share * circumference - segmentGap);
+
+    return {
+      progress: acc.progress + share,
+      items: [...acc.items, { category, dash, strokeDashoffset: -acc.progress * circumference }],
+    };
+  }, { progress: 0, items: [] }).items;
 
   return (
     <View className="items-center gap-5">
@@ -184,13 +231,7 @@ function CategoryDonut({ data }: { data: CategoryAnalytics[] }) {
             fill="transparent"
           />
           <G rotation="-90" origin={`${center}, ${center}`}>
-            {data.map((category) => {
-              const share = total > 0 ? category.total / total : 0;
-              const dash = Math.max(0, share * circumference - segmentGap);
-              const strokeDashoffset = -progress * circumference;
-              progress += share;
-
-              return (
+            {segments.map(({ category, dash, strokeDashoffset }) => (
                 <Circle
                   key={category.category}
                   cx={center}
@@ -203,8 +244,7 @@ function CategoryDonut({ data }: { data: CategoryAnalytics[] }) {
                   strokeLinecap="butt"
                   fill="transparent"
                 />
-              );
-            })}
+            ))}
           </G>
         </Svg>
         <View className="absolute h-[104px] w-[104px] items-center justify-center rounded-full" style={{ backgroundColor: centerColor }}>
@@ -313,24 +353,60 @@ function CreatorBreakdown({ data }: { data: CreatorAnalytics[] }) {
 
 // ─── Main Component ───────────────────────────────────────
 
-export function AnalyticsCharts({ header, hideStats = false }: { header?: React.ReactNode; hideStats?: boolean }) {
+export function AnalyticsCharts({ header, hideStats = false, data: providedData, monthlyTrendData, datePeriod: controlledDatePeriod, onDatePeriodChange, selectedMonth: controlledSelectedMonth, onSelectedMonthChange }: AnalyticsChartsProps) {
   const appTheme = useAppTheme();
   const { format } = useCurrency();
   const positive = appTheme.colors.positive;
   const negative = appTheme.colors.negative;
   const [showBalance, setShowBalance] = useState(true);
-  const [datePeriod, setDatePeriod] = useState<DatePeriod>(DATE_PRESETS[0]);
-  const [monthOffset, setMonthOffset] = useState(0);
+  const [internalDatePeriod, setInternalDatePeriod] = useState<DatePeriod>(DATE_PRESETS[0]);
+  const [internalSelectedMonth, setInternalSelectedMonth] = useState(() => new Date());
+  const datePeriod = controlledDatePeriod ?? internalDatePeriod;
+  const selectedMonth = controlledSelectedMonth ?? internalSelectedMonth;
 
-  const data = useMemo(() => createMockAnalytics({ from: datePeriod.from, to: datePeriod.to, allTime: datePeriod.allTime }), [datePeriod]);
+  function setDatePeriod(period: DatePeriod) {
+    if (onDatePeriodChange) onDatePeriodChange(period);
+    else setInternalDatePeriod(period);
 
-  const monthDate = useMemo(() => {
-    const d = new Date();
-    d.setMonth(d.getMonth() + monthOffset);
-    return d;
-  }, [monthOffset]);
+    const anchor = period.to ?? period.from;
+    if (anchor) {
+      const [year, month] = anchor.split("-").map(Number);
+      const nextMonth = new Date(year, month - 1, 1);
+      if (onSelectedMonthChange) onSelectedMonthChange(nextMonth);
+      else setInternalSelectedMonth(nextMonth);
+    }
+  }
 
-  const monthLabel = monthDate.toLocaleDateString("id-ID", { month: "long", year: "numeric" });
+  function setSelectedMonth(month: Date) {
+    const nextMonth = new Date(month.getFullYear(), month.getMonth(), 1);
+    if (onSelectedMonthChange) onSelectedMonthChange(nextMonth);
+    else setInternalSelectedMonth(nextMonth);
+
+    const from = toDateKey(nextMonth);
+    const to = toDateKey(new Date(nextMonth.getFullYear(), nextMonth.getMonth() + 1, 0));
+    const label = nextMonth.toLocaleDateString("id-ID", { month: "long", year: "numeric" });
+    const nextPeriod = { label, from, to };
+    if (onDatePeriodChange) onDatePeriodChange(nextPeriod);
+    else setInternalDatePeriod(nextPeriod);
+  }
+
+  function setSelectedMonthKey(month: string) {
+    const [year, monthNumber] = month.split("-").map(Number);
+    setSelectedMonth(new Date(year, monthNumber - 1, 1));
+  }
+
+  const data = useMemo(
+    () => providedData ?? createMockAnalytics({ from: datePeriod.from, to: datePeriod.to, allTime: datePeriod.allTime }),
+    [datePeriod, providedData],
+  );
+
+  const monthLabel = selectedMonth.toLocaleDateString("id-ID", { month: "long", year: "numeric" });
+  const selectedMonthKey = monthKeyFromDate(selectedMonth);
+  const highlightedMonths = useMemo<MonthHighlight>(() => {
+    if (datePeriod.allTime || datePeriod.label === "This year") return "all";
+    if (datePeriod.label === "3 months") return recentMonthKeys(selectedMonth, 3);
+    return [selectedMonthKey];
+  }, [datePeriod, selectedMonth, selectedMonthKey]);
 
   const mutedSurface = appTheme.isDark ? "rgba(255,255,255,0.045)" : "rgba(15,23,42,0.035)";
   const borderColor = appTheme.isDark ? "rgba(255,255,255,0.1)" : "rgba(15,23,42,0.08)";
@@ -369,7 +445,11 @@ export function AnalyticsCharts({ header, hideStats = false }: { header?: React.
       )}
 
       {/* Period Navigation */}
-      <PeriodNav label={monthLabel} onPrev={() => setMonthOffset((o) => o - 1)} onNext={() => setMonthOffset((o) => o + 1)} />
+      <PeriodNav
+        label={monthLabel}
+        onPrev={() => setSelectedMonth(new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() - 1, 1))}
+        onNext={() => setSelectedMonth(new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() + 1, 1))}
+      />
 
       {/* Filter Presets */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerClassName="gap-2">
@@ -382,7 +462,7 @@ export function AnalyticsCharts({ header, hideStats = false }: { header?: React.
       {/* Monthly Trend */}
       <View className="overflow-hidden rounded-2xl p-4" style={{ borderColor, borderWidth: 1 }}>
         <RNText className="mb-3 text-sm font-bold" style={{ color: appTheme.colors.foreground }}>Monthly Trend</RNText>
-        <BarChart data={data.byMonth} />
+        <BarChart data={monthlyTrendData ?? data.byMonth} highlightedMonths={highlightedMonths} onMonthPress={setSelectedMonthKey} />
       </View>
 
       {/* Category Breakdown */}

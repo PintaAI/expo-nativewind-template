@@ -136,6 +136,30 @@ function createLightBackground(primary: string) {
   return mixHex(primary, "#ffffff", 0.92);
 }
 
+function ensureLightPrimaryVisible(primary: string) {
+  let hsl = rgbToHsl(primary);
+  let adjustedPrimary = primary;
+
+  while (getContrastRatio(adjustedPrimary, "#ffffff") < 4.5 && hsl.lightness > 0.18) {
+    hsl = { ...hsl, lightness: Math.max(0.18, hsl.lightness - 0.04) };
+    adjustedPrimary = hslToHex(hsl.hue, hsl.saturation, hsl.lightness);
+  }
+
+  return adjustedPrimary;
+}
+
+function ensureDarkPrimaryVisible(primary: string) {
+  let hsl = rgbToHsl(primary);
+  let adjustedPrimary = primary;
+
+  while (getContrastRatio(adjustedPrimary, "#000000") < 4.5 && hsl.lightness < 0.82) {
+    hsl = { ...hsl, lightness: Math.min(0.82, hsl.lightness + 0.04) };
+    adjustedPrimary = hslToHex(hsl.hue, hsl.saturation, hsl.lightness);
+  }
+
+  return adjustedPrimary;
+}
+
 function createDarkBackground(primary: string) {
   return mixHex(primary, "#000000", 0.88);
 }
@@ -170,7 +194,7 @@ function pickColors(result: ImageColorsResult): ExtractedColors {
   const candidates = getValidResultColors(result);
 
   if (result.platform === "ios") {
-    const primary = normalizeHex(result.primary, "#3b82f6");
+    const primary = ensureLightPrimaryVisible(normalizeHex(result.primary, "#3b82f6"));
     const secondary = pickSecondary(primary, candidates);
 
     return {
@@ -182,7 +206,7 @@ function pickColors(result: ImageColorsResult): ExtractedColors {
     };
   }
 
-  const primary = normalizeHex(result.dominant, "#3b82f6");
+  const primary = ensureLightPrimaryVisible(normalizeHex(result.dominant, "#3b82f6"));
   const secondary = pickSecondary(primary, candidates);
 
   return {
@@ -224,20 +248,23 @@ export async function extractPalette(uri: string): Promise<ExtractedPalette> {
 }
 
 export function colorsToThemeSet(colors: ExtractedColors): ThemeSet {
+  const lightPrimary = ensureLightPrimaryVisible(colors.primary);
+  const darkPrimary = ensureDarkPrimaryVisible(mixHex(lightPrimary, "#ffffff", 0.28));
+
   return {
     light: {
-      "--color-primary": colors.primary,
+      "--color-primary": lightPrimary,
       "--color-secondary": colors.secondary,
       "--color-muted": colors.muted,
-      "--color-background": colors.background,
-      "--color-foreground": colors.foreground,
+      "--color-background": createLightBackground(lightPrimary),
+      "--color-foreground": createLightForeground(lightPrimary),
     },
     dark: {
-      "--color-primary": mixHex(colors.primary, "#ffffff", 0.28),
+      "--color-primary": darkPrimary,
       "--color-secondary": mixHex(colors.secondary, "#ffffff", 0.22),
       "--color-muted": mixHex(colors.muted, "#ffffff", 0.3),
-      "--color-background": createDarkBackground(colors.primary),
-      "--color-foreground": createDarkForeground(colors.primary),
+      "--color-background": createDarkBackground(lightPrimary),
+      "--color-foreground": createDarkForeground(lightPrimary),
     },
   };
 }

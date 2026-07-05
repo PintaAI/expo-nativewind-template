@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Pressable, View } from "react-native";
 import { SymbolView, type SFSymbol } from "expo-symbols";
+import { router } from "expo-router";
 
 import { AppText as RNText } from "@/components/AppText";
 import { useAppTheme } from "@/components/AppTheme";
@@ -62,7 +63,7 @@ function StatSymbol({ name, color }: { name: SFSymbol; color: string }) {
   );
 }
 
-export function CashflowStatsCard({ stats, hideMoreButton = false }: { stats: CashflowStats; hideMoreButton?: boolean }) {
+export function CashflowStatsCard({ stats, hideMoreButton = false, managementName }: { stats: CashflowStats; hideMoreButton?: boolean; managementName?: string }) {
   const appTheme = useAppTheme();
   const { format } = useCurrency();
   const [showBalance, setShowBalance] = useState(true);
@@ -77,9 +78,22 @@ export function CashflowStatsCard({ stats, hideMoreButton = false }: { stats: Ca
     <View className="mb-5">
       <View className="mb-4 flex-row items-center justify-between">
         <View className="flex-row items-center gap-3">
-          <RNText className="text-xs font-semibold uppercase tracking-[2px]" style={{ color: appTheme.colors.muted }}>
-            Balance
-          </RNText>
+          <Pressable
+            onPress={() => router.push("/forms/wallet")}
+            accessibilityRole="button"
+            accessibilityLabel="Switch wallet"
+            className="max-w-[170px] flex-row items-center gap-1.5 rounded-full px-2.5 py-1.5"
+            style={{ backgroundColor: detailBackground }}
+          >
+            <RNText
+              numberOfLines={1}
+              className="shrink text-xs font-semibold uppercase tracking-[2px]"
+              style={{ color: appTheme.colors.muted }}
+            >
+              {managementName ?? "Balance"}
+            </RNText>
+            <StatSymbol name="chevron.down" color={appTheme.colors.muted} />
+          </Pressable>
           <Pressable
             onPress={() => setShowBalance(!showBalance)}
             accessibilityRole="button"

@@ -4,7 +4,9 @@ import { usePathname, type Href, router } from "expo-router";
 import Animated, { useAnimatedStyle, interpolate } from "react-native-reanimated";
 import { useDrawerProgress } from "react-native-drawer-layout";
 import { GlassView } from "expo-glass-effect";
+import { Image } from "expo-image";
 import { SymbolView, type SFSymbol } from "expo-symbols";
+import { useAuth } from "@/components/AuthProvider";
 import { useAppTheme } from "@/components/AppTheme";
 
 export type SidebarSubItem = {
@@ -13,6 +15,7 @@ export type SidebarSubItem = {
   route?: Href;
   onPress?: () => void;
   activeRoutes?: string[];
+  badge?: string;
 };
 
 export type SidebarNavItem = {
@@ -22,6 +25,7 @@ export type SidebarNavItem = {
   onPress?: () => void;
   subItems?: SidebarSubItem[];
   activeRoutes?: string[];
+  badge?: string;
 };
 
 export type SidebarGroup = {
@@ -39,37 +43,30 @@ const defaultGroups: SidebarGroup[] = [
   {
     label: "Cashflow",
     items: [
+      { label: "Home", icon: "house.fill", route: "/home" as Href },
       {
         label: "Wallet",
         icon: "wallet.pass.fill",
         route: "/forms/wallet" as Href,
         subItems: [{ label: "Transfer", icon: "arrow.left.arrow.right", route: "/forms/transfer" as Href }],
       },
-      { label: "Categories", icon: "tag.fill", route: "/forms/categories" as Href },
-      { label: "Budget", icon: "chart.pie.fill", route: "/forms/budget" as Href },
-      { label: "Catat Otomatis", icon: "repeat.circle.fill", route: "/forms/automatic-entry" as Href },
+      { label: "Categories & Budget", icon: "chart.pie.fill", route: "/forms/categories" as Href },
       { label: "Quick Fill", icon: "bolt.fill", route: "/forms/quick-fill" as Href },
-      { label: "Reminder", icon: "bell.fill", route: "/forms/reminder" as Href },
+      { label: "Catat Otomatis", icon: "repeat.circle.fill", route: "/forms/automatic-entry" as Href },
     ],
   },
   {
     label: "Notes",
     items: [
-      { label: "Notebooks", icon: "book.fill", route: "/forms/notebooks" as Href },
-      { label: "Tags", icon: "tag.fill", route: "/forms/tags" as Href },
-      { label: "Archive", icon: "archivebox.fill", route: "/forms/archive" as Href },
+      { label: "Notebooks", icon: "book.fill", badge: "Soon" },
+      { label: "Tags", icon: "tag.fill", badge: "Soon" },
+      { label: "Archive", icon: "archivebox.fill", badge: "Soon" },
     ],
   },
   {
     label: "Games",
     items: [
-      { label: "Statie", icon: "gamecontroller.fill", route: "/forms/statie" as Href },
-    ],
-  },
-  {
-    label: "Experiments",
-    items: [
-      { label: "Palette", icon: "paintpalette.fill", route: "/" as Href },
+      { label: "Statie", icon: "gamecontroller.fill", badge: "Soon" },
     ],
   },
 ];
@@ -163,6 +160,23 @@ function SidebarNavRow({
         >
           {item.label}
         </Text>
+        {'badge' in item && item.badge ? (
+          <View
+            className="ml-auto rounded-full px-2 py-0.5"
+            style={{ backgroundColor: appTheme.colors.primary + "22" }}
+          >
+            <Text
+              style={{
+                color: appTheme.colors.primary,
+                fontSize: appTheme.textSize - 6,
+                fontWeight: "700",
+                letterSpacing: 0.5,
+              }}
+            >
+              {item.badge}
+            </Text>
+          </View>
+        ) : null}
       </View>
     </Pressable>
   );
@@ -170,6 +184,7 @@ function SidebarNavRow({
 
 export default function Sidebar({ onClose, onOpenProfile, groups = defaultGroups }: SidebarProps) {
   const appTheme = useAppTheme();
+  const auth = useAuth();
   const pathname = usePathname();
   const progress = useDrawerProgress();
   const separatorLine = appTheme.isDark ? "rgba(255,255,255,0.12)" : "rgba(15,23,42,0.1)";
@@ -295,19 +310,23 @@ export default function Sidebar({ onClose, onOpenProfile, groups = defaultGroups
         >
           <View className="flex-row items-center gap-3">
             <View
-              className="h-12 w-12 items-center justify-center rounded-full"
+              className="h-12 w-12 items-center justify-center overflow-hidden rounded-full"
               style={{ backgroundColor: appTheme.colors.primary }}
             >
-              <Text
-                style={{
-                  color: appTheme.colors.inverseForeground,
-                  fontSize: appTheme.textSize - 1,
-                  fontWeight: "800",
-                  letterSpacing: appTheme.textSpacing,
-                }}
-              >
-                EA
-              </Text>
+              {auth.avatarSource ? (
+                <Image source={auth.avatarSource} contentFit="cover" style={{ height: "100%", width: "100%" }} />
+              ) : (
+                <Text
+                  style={{
+                    color: appTheme.colors.inverseForeground,
+                    fontSize: appTheme.textSize - 1,
+                    fontWeight: "800",
+                    letterSpacing: appTheme.textSpacing,
+                  }}
+                >
+                  {auth.initials}
+                </Text>
+              )}
             </View>
 
             <View className="min-w-0 flex-1">
@@ -315,10 +334,10 @@ export default function Sidebar({ onClose, onOpenProfile, groups = defaultGroups
                 numberOfLines={1}
                 style={{ color: appTheme.colors.foreground, fontSize: appTheme.textSize - 1, fontWeight: "700", letterSpacing: appTheme.textSpacing }}
               >
-                Ethos Account
+                {auth.displayName}
               </Text>
               <Text numberOfLines={1} style={appTheme.text.caption}>
-                Profile and app settings
+                {auth.email || (auth.isPending ? "Loading account..." : "Not signed in")}
               </Text>
             </View>
 
