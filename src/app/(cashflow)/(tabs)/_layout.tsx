@@ -17,7 +17,7 @@ export default function CashflowTabsLayout() {
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="cashflow">
         <NativeTabs.Trigger.Label>Cashflow</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon sf="arrow.up.arrow.down" md="swap_vert" />
+        <NativeTabs.Trigger.Icon sf="arrow.up.left.arrow.down.right.circle" md="swap_vert" />
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="summary">
         <NativeTabs.Trigger.Label>Summary</NativeTabs.Trigger.Label>

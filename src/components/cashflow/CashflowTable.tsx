@@ -6,6 +6,7 @@ import { AppText as RNText } from "@/components/AppText";
 import { useAppTheme } from "@/components/AppTheme";
 import { useCurrency } from "@/components/CurrencyProvider";
 import { alpha } from "@/lib/color";
+import { formatEntryAmount } from "@/lib/currency";
 import { addDaysToDateKey, formatDateKey, parseDateKey } from "@/lib/date";
 
 export type IOType = "Income" | "Expenses";
@@ -14,6 +15,10 @@ export type CashflowEntry = {
   id: string;
   name: string;
   nominal: number;
+  originalNominal: number | null;
+  originalCurrency: string | null;
+  exchangeRateToIdr: number | null;
+  exchangeRateAt: string | null;
   category: string | null;
   createdBy: string | null;
   date: string;
@@ -161,7 +166,7 @@ function compareText(a: string | null, b: string | null) {
 
 export function CashflowTable({ entries, dateFilter, onDateFilterChange, hideTanggal = false }: CashflowTableProps) {
   const appTheme = useAppTheme();
-  const { format } = useCurrency();
+  const { currency, format } = useCurrency();
   const [globalFilter, setGlobalFilter] = useState("");
   const [ioFilter, setIoFilter] = useState<FilterValue>("all");
   const [categoryFilter, setCategoryFilter] = useState<FilterValue>("all");
@@ -383,7 +388,7 @@ export function CashflowTable({ entries, dateFilter, onDateFilterChange, hideTan
                   </View>
                   <View className="items-end gap-1.5">
                     <RNText numberOfLines={1} className="text-right text-base font-bold" style={{ color: amountColor }}>
-                      {isIncome ? "+" : "-"}{format(entry.nominal, { compact: true })}
+                      {isIncome ? "+" : "-"}{formatEntryAmount(entry, currency, format, { compact: true })}
                     </RNText>
                     <View className="flex-row items-center gap-1">
                       <View className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: amountColor }} />

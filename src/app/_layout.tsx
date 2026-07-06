@@ -6,6 +6,7 @@ import { AppThemeProvider, useAppTheme } from "@/components/AppTheme";
 import { AuthProvider } from "@/components/AuthProvider";
 import { CurrencyProvider } from "@/components/CurrencyProvider";
 import { DrawerProvider } from "@/components/DrawerContext";
+import { SyncProvider } from "@/components/SyncProvider";
 import { CashflowDataProvider } from "@/data/cashflow/CashflowDataProvider";
 import { migrateCashflowDatabase } from "@/data/cashflow/schema";
 import { View } from "react-native";
@@ -45,7 +46,8 @@ function RootNavigator() {
           <Suspense fallback={<View style={{ flex: 1, backgroundColor: appTheme.colors.background }} />}>
             <SQLiteProvider databaseName="ethos-cashflow.db" onInit={migrateCashflowDatabase} useSuspense>
               <CashflowDataProvider>
-                <DrawerProvider>
+                <SyncProvider>
+                  <DrawerProvider>
                   <Stack
                     screenOptions={{
                       contentStyle: { backgroundColor: appTheme.colors.background },
@@ -75,7 +77,8 @@ function RootNavigator() {
                       }}
                     />
                   </Stack>
-                </DrawerProvider>
+                  </DrawerProvider>
+                </SyncProvider>
               </CashflowDataProvider>
             </SQLiteProvider>
           </Suspense>

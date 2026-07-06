@@ -218,10 +218,11 @@ function pickColors(result: ImageColorsResult): ExtractedColors {
   };
 }
 
-export async function extractColors(uri: string): Promise<ExtractedColors> {
+export async function extractColors(uri: string, headers?: Record<string, string>): Promise<ExtractedColors> {
   const result = await getColors(uri, {
     cache: true,
     fallback: "#3b82f6",
+    ...(headers ? { headers } : {}),
     pixelSpacing: 8,
     quality: "low",
   });
@@ -229,10 +230,11 @@ export async function extractColors(uri: string): Promise<ExtractedColors> {
   return pickColors(result);
 }
 
-export async function extractPalette(uri: string): Promise<ExtractedPalette> {
+export async function extractPalette(uri: string, headers?: Record<string, string>): Promise<ExtractedPalette> {
   const result = await getColors(uri, {
     cache: true,
     fallback: "#3b82f6",
+    ...(headers ? { headers } : {}),
     pixelSpacing: 8,
     quality: "low",
   });

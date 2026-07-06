@@ -15,6 +15,8 @@ export type Preferences = {
   textSpacing: number | null;
   activityView: "grid" | "calendar";
   cashflowCategoryIndex: number | null;
+  currency: string;
+  exchangeRates: Record<string, number> | null;
 };
 
 const STORAGE_PREFIX = "@ethos/preferences";
@@ -27,6 +29,8 @@ const preferenceDefaults: Preferences = {
   textSpacing: null,
   activityView: "grid",
   cashflowCategoryIndex: null,
+  currency: "IDR",
+  exchangeRates: null,
 };
 
 function getStorageKey(key: keyof Preferences) {

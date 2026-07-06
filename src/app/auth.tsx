@@ -81,7 +81,6 @@ export default function Auth() {
             Continue with Google or Apple to sync your account.
           </AppText>
         </View>
-
         <View className="gap-3 rounded-3xl border p-4" style={{ borderColor, backgroundColor: surface }}>
 
 

@@ -1,4 +1,4 @@
-import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   convertFromIdr,
   convertToIdr,
@@ -7,10 +7,14 @@ import {
   getDenominations,
   type CurrencyOption,
 } from "@/lib/currency";
+import { getExchangeRates, getUserCurrency, updateUserCurrency } from "@/lib/api/preferences";
+import { getPreference, setPreference } from "@/lib/preferences";
 
 type CurrencyContextValue = {
   currency: string;
   option: CurrencyOption;
+  rates: Record<string, number>;
+  rate: number;
   isIdr: boolean;
   format: (amountIdr: number, options?: { compact?: boolean }) => string;
   toIdr: (displayAmount: number) => number;
@@ -39,7 +43,43 @@ const DEFAULT_RATES_FROM_IDR: Record<string, number> = {
 
 export function CurrencyProvider({ children }: { children: ReactNode }) {
   const [currency, setCurrency] = useState("IDR");
-  const rate = DEFAULT_RATES_FROM_IDR[currency] ?? 1;
+  const [rates, setRates] = useState<Record<string, number>>(DEFAULT_RATES_FROM_IDR);
+  const rate = rates[currency] ?? DEFAULT_RATES_FROM_IDR[currency] ?? 1;
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      const [storedCurrency, storedRates] = await Promise.all([
+        getPreference("currency"),
+        getPreference("exchangeRates"),
+      ]);
+      if (cancelled) return;
+      setCurrency(storedCurrency);
+      if (storedRates) setRates({ ...DEFAULT_RATES_FROM_IDR, ...storedRates });
+
+      try {
+        const [serverCurrency, serverRates] = await Promise.all([
+          getUserCurrency(),
+          getExchangeRates(),
+        ]);
+        if (cancelled) return;
+        setCurrency(serverCurrency);
+        setRates({ ...DEFAULT_RATES_FROM_IDR, ...serverRates });
+        await Promise.all([
+          setPreference("currency", serverCurrency),
+          setPreference("exchangeRates", serverRates),
+        ]);
+      } catch {
+        // Offline mode keeps the last cached preference/rates.
+      }
+    }
+
+    load().catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const value = useMemo<CurrencyContextValue>(() => {
     const option = getCurrencyOption(currency);
@@ -47,6 +87,8 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
     return {
       currency,
       option,
+      rates,
+      rate,
       isIdr: currency === "IDR",
       format: (amountIdr, options) => {
         const converted = convertFromIdr(amountIdr, currency, rate);
@@ -54,10 +96,14 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
       },
       toIdr: (displayAmount) => convertToIdr(displayAmount, currency, rate),
       toDisplay: (amountIdr) => convertFromIdr(amountIdr, currency, rate),
-      setCurrency,
+      setCurrency: (code) => {
+        setCurrency(code);
+        setPreference("currency", code).catch(() => {});
+        updateUserCurrency(code).catch(() => {});
+      },
       denominations: getDenominations(currency),
     };
-  }, [currency]);
+  }, [currency, rate, rates]);
 
   return <CurrencyContext.Provider value={value}>{children}</CurrencyContext.Provider>;
 }

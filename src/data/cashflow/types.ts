@@ -1,6 +1,7 @@
 import type { ActivityOverview } from "@/components/cashflow/ActivityHeatmap";
 import type { CashflowEntry } from "@/components/cashflow/CashflowTable";
 import type { CashflowStats } from "@/components/cashflow/CashflowStatsCard";
+import type { ThemeSet } from "@/components/AppTheme";
 
 export type SyncStatus = "synced" | "pending" | "updated" | "deleted" | "conflict";
 export type BudgetPeriod = "daily" | "weekly" | "monthly";
@@ -10,11 +11,19 @@ export type CashflowManagement = {
   id: string;
   name: string;
   image: string | null;
+  imageTheme: ManagementImageTheme | null;
   createdAt: string;
   updatedAt: string;
   balance: number;
   entryCount: number;
   memberCount: number;
+};
+
+export type ManagementImageTheme = {
+  version: 1;
+  image: string;
+  themeSlug: string;
+  themeSet: ThemeSet;
 };
 
 export type CashflowManagementMember = {
@@ -72,6 +81,10 @@ export type CashflowRecurringEntry = {
 export type CreateEntryInput = {
   name: string;
   nominal: number;
+  originalNominal?: number;
+  originalCurrency?: string;
+  exchangeRateToIdr?: number;
+  exchangeRateAt?: string;
   categoryId: string | null;
   date: string;
   io: "Income" | "Expenses";
@@ -119,6 +132,8 @@ export type CashflowDataState = {
   activity: ActivityOverview;
   analytics: CashflowAnalytics;
   setActiveManagementId: (managementId: string) => Promise<void>;
+  setManagementImage: (managementId: string, image: string, imageTheme: ManagementImageTheme | null) => Promise<void>;
+  updateManagementImageTheme: (managementId: string, imageTheme: ManagementImageTheme) => Promise<void>;
   createManagement: (input: CreateManagementInput) => Promise<void>;
   updateManagement: (managementId: string, input: UpdateManagementInput) => Promise<void>;
   listManagementMembers: (managementId: string) => Promise<CashflowManagementMember[]>;

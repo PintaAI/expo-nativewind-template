@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useSQLiteContext } from "expo-sqlite";
-import type { BudgetPeriod, CashflowDataState, CashflowCategory, CashflowManagement, CashflowOverallBudget, CashflowQuickFill, CashflowRecurringEntry, CreateCategoryInput, CreateEntryInput, CreateQuickFillInput, CreateRecurringEntryInput, UpdateManagementInput } from "./types";
+import type { BudgetPeriod, CashflowDataState, CashflowCategory, CashflowManagement, CashflowOverallBudget, CashflowQuickFill, CashflowRecurringEntry, CreateCategoryInput, CreateEntryInput, CreateQuickFillInput, CreateRecurringEntryInput, ManagementImageTheme, UpdateManagementInput } from "./types";
 import {
   buildActivity,
   buildAnalytics,
@@ -25,8 +25,10 @@ import {
   listRecurringEntries,
   materializeDueRecurringEntries,
   setActiveManagementId as persistActiveManagementId,
+  setManagementImage as persistManagementImage,
   updateOverallBudget as persistOverallBudget,
   updateEntry as updateEntryInRepo,
+  updateManagementImageTheme as updateManagementImageThemeInRepo,
   updateManagement as updateManagementInRepo,
 } from "./repository";
 import type { CashflowEntry } from "@/components/cashflow/CashflowTable";
@@ -123,6 +125,14 @@ export function CashflowDataProvider({ children }: { children: ReactNode }) {
     analytics: entries.length > 0 ? analytics : emptyAnalytics,
     setActiveManagementId: async (managementId) => {
       await persistActiveManagementId(db, managementId);
+      await refresh();
+    },
+    setManagementImage: async (managementId: string, image: string, imageTheme: ManagementImageTheme | null) => {
+      await persistManagementImage(db, managementId, image, imageTheme);
+      await refresh();
+    },
+    updateManagementImageTheme: async (managementId: string, imageTheme: ManagementImageTheme) => {
+      await updateManagementImageThemeInRepo(db, managementId, imageTheme);
       await refresh();
     },
     createManagement: async (input) => {

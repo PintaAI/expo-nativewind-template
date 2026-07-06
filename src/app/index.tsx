@@ -1,11 +1,20 @@
+import { useEffect } from "react";
 import { Pressable, View } from "react-native";
 import { Stack, router } from "expo-router";
 import { AppText as Text } from "@/components/AppText";
 import { useAppTheme } from "@/components/AppTheme";
+import { useAuth } from "@/components/AuthProvider";
 import { alpha } from "@/lib/color";
 
 export default function Home() {
   const appTheme = useAppTheme();
+  const auth = useAuth();
+
+  useEffect(() => {
+    if (!auth.isPending && auth.isAuthenticated) {
+      router.replace("/home");
+    }
+  }, [auth.isAuthenticated, auth.isPending]);
 
   return (
     <View className="flex-1 justify-between px-5 pb-8 pt-6" style={{ backgroundColor: appTheme.colors.background }}>

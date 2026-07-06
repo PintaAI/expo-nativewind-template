@@ -8,23 +8,17 @@ import DateTimePicker from "@expo/ui/community/datetime-picker";
 import { SymbolView, type SFSymbol } from "expo-symbols";
 import { GlassView } from "expo-glass-effect";
 import { useAppTheme } from "@/components/AppTheme";
+import { useCurrency } from "@/components/CurrencyProvider";
 import { useCashflowData } from "@/data/cashflow/CashflowDataProvider";
 import { alpha } from "@/lib/color";
 import { toDateKey, parseDateKey } from "@/lib/date";
 import { getPreference, setPreference } from "@/lib/preferences";
 
 const QUICK_FILLS = ["Kopi", "Makan siang", "Parkir", "Grab", "Token listrik"];
-const DENOMINATIONS = [
-  { value: 1000, color: "#6b7280" },
-  { value: 2000, color: "#64748b" },
-  { value: 5000, color: "#a16207" },
-  { value: 10000, color: "#9333ea" },
-  { value: 50000, color: "#2563eb" },
-  { value: 100000, color: "#dc2626" },
-];
+const DENOMINATION_COLORS = ["#6b7280", "#64748b", "#a16207", "#9333ea", "#2563eb", "#dc2626", "#16a34a"];
 const DATE_OPTIONS = [
-  { label: "Hari ini", daysAgo: 0 },
   { label: "Kemaren", daysAgo: 1 },
+  { label: "Hari ini", daysAgo: 0 },
   { label: "Tanggal" },
 ];
 const FALLBACK_CATEGORIES = [
@@ -95,7 +89,7 @@ function formatCompactDate(date: Date) {
   return `${WEEKDAYS[date.getDay()]}, ${date.getDate()} ${MONTHS[date.getMonth()]}`;
 }
 
-function QuickAmountStrip({ onAmount }: { onAmount: (value: number) => void }) {
+function QuickAmountStrip({ denominations, onAmount }: { denominations: number[]; onAmount: (value: number) => void }) {
   const appTheme = useAppTheme();
   const neutralBg = appTheme.isDark ? "rgba(255,255,255,0.055)" : "rgba(255,255,255,0.78)";
   const neutralBorder = appTheme.isDark ? "rgba(255,255,255,0.1)" : "rgba(15,23,42,0.08)";
@@ -103,14 +97,14 @@ function QuickAmountStrip({ onAmount }: { onAmount: (value: number) => void }) {
   return (
     <View className="w-full overflow-hidden rounded-2xl border" style={{ backgroundColor: neutralBg, borderColor: neutralBorder }}>
       <View className="flex-row">
-        {DENOMINATIONS.map((item, index) => (
-          <View key={item.value} className="flex-1 flex-row">
-            <Pressable accessibilityRole="button" className="min-h-10 flex-1 items-center justify-center px-1" onPress={() => onAmount(item.value)}>
-              <Text className="text-sm font-semibold" style={{ color: item.color }}>
-                +{formatShortAmount(item.value)}
+        {denominations.map((value, index) => (
+          <View key={value} className="flex-1 flex-row">
+            <Pressable accessibilityRole="button" className="min-h-10 flex-1 items-center justify-center px-1" onPress={() => onAmount(value)}>
+              <Text className="text-sm font-semibold" style={{ color: DENOMINATION_COLORS[index % DENOMINATION_COLORS.length] }}>
+                +{formatShortAmount(value)}
               </Text>
             </Pressable>
-            {index < DENOMINATIONS.length - 1 ? <View className="w-px" style={{ backgroundColor: neutralBorder }} /> : null}
+            {index < denominations.length - 1 ? <View className="w-px" style={{ backgroundColor: neutralBorder }} /> : null}
           </View>
         ))}
       </View>
@@ -191,6 +185,7 @@ function Section({ title, overflowVisible, borderless, children }: { title?: str
 
 export default function EntryForm() {
   const appTheme = useAppTheme();
+  const currency = useCurrency();
   const { id } = useLocalSearchParams<{ id?: string }>();
   const isEditing = !!id;
   const { categories, quickFills, entries, createEntry, updateEntry } = useCashflowData();
@@ -218,6 +213,7 @@ export default function EntryForm() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [customDate, setCustomDate] = useState<Date | null>(null);
   const [amountText, setAmountText] = useState("");
+  const [initialAmountText, setInitialAmountText] = useState("");
   const [noteText, setNoteText] = useState("");
   const { width: screenWidth } = useWindowDimensions();
   const scrollRef = useRef<ScrollView>(null);
@@ -257,9 +253,14 @@ export default function EntryForm() {
 
     queueMicrotask(() => {
       if (cancelled) return;
+      const displayNominal = editingEntry.originalCurrency === currency.currency && editingEntry.originalNominal !== null
+        ? editingEntry.originalNominal
+        : currency.toDisplay(editingEntry.nominal);
+      const nextAmountText = String(Math.round(displayNominal));
 
       setIoIndex(editingEntry.io === "Income" ? 0 : 1);
-      setAmountText(String(editingEntry.nominal));
+      setAmountText(nextAmountText);
+      setInitialAmountText(nextAmountText);
       setNoteText(editingEntry.name);
 
       if (editingEntry.date === toDateKey(getDateDaysAgo(0))) {
@@ -292,7 +293,7 @@ export default function EntryForm() {
     return () => {
       cancelled = true;
     };
-  }, [editingEntry, categoryOptions, scrollX]);
+  }, [currency, editingEntry, categoryOptions, scrollX]);
 
   useEffect(() => {
     const id = scrollX.addListener(({ value }) => {
@@ -333,8 +334,14 @@ export default function EntryForm() {
 
   const clearForm = () => {
     if (editingEntry) {
+      const displayNominal = editingEntry.originalCurrency === currency.currency && editingEntry.originalNominal !== null
+        ? editingEntry.originalNominal
+        : currency.toDisplay(editingEntry.nominal);
+      const nextAmountText = String(Math.round(displayNominal));
+
       setIoIndex(editingEntry.io === "Income" ? 0 : 1);
-      setAmountText(String(editingEntry.nominal));
+      setAmountText(nextAmountText);
+      setInitialAmountText(nextAmountText);
       setNoteText(editingEntry.name);
 
       if (editingEntry.date === toDateKey(getDateDaysAgo(0))) {
@@ -365,6 +372,7 @@ export default function EntryForm() {
     setDateIndex(0);
     setCustomDate(null);
     setAmountText("");
+    setInitialAmountText("");
     setNoteText("");
     lastSnappedRef.current = initialCategoryIndex;
     categoryIndexRef.current = initialCategoryIndex;
@@ -373,11 +381,14 @@ export default function EntryForm() {
   };
 
   const handleSave = async () => {
-    const nominal = parseInt(amountText, 10) || 0;
-    if (nominal <= 0) {
+    const displayNominal = parseInt(amountText, 10) || 0;
+    if (displayNominal <= 0) {
       Alert.alert("Amount required", "Enter an amount before saving this entry.");
       return;
     }
+
+    const nominal = Math.round(currency.toIdr(displayNominal));
+    const exchangeRateToIdr = currency.isIdr ? 1 : 1 / currency.rate;
 
     const selectedCategory = categoryOptions[categoryIndex] ?? categoryOptions[0];
     const selectedDateOption = DATE_OPTIONS[dateIndex];
@@ -395,9 +406,23 @@ export default function EntryForm() {
     };
 
     if (isEditing && id) {
+      if (amountText !== initialAmountText) {
+        Object.assign(payload, {
+          originalNominal: displayNominal,
+          originalCurrency: currency.currency,
+          exchangeRateToIdr,
+          exchangeRateAt: new Date().toISOString(),
+        });
+      }
       await updateEntry(id, payload);
     } else {
-      await createEntry(payload);
+      await createEntry({
+        ...payload,
+        originalNominal: displayNominal,
+        originalCurrency: currency.currency,
+        exchangeRateToIdr,
+        exchangeRateAt: new Date().toISOString(),
+      });
     }
 
     clearForm();
@@ -504,10 +529,10 @@ export default function EntryForm() {
               className="w-full text-7xl font-bold tracking-tight"
               inputMode="numeric"
               keyboardType="number-pad"
-              placeholder="Rp 0"
+              placeholder={`${currency.option.symbol} 0`}
               placeholderTextColor={appTheme.colors.muted}
               style={{ color: appTheme.colors.foreground, height: 96, includeFontPadding: false, lineHeight: 84, paddingVertical: 0, textAlign: "center", textAlignVertical: "center", transform: [{ translateY: -4 }] }}
-              value={amountText ? `Rp ${formatAmountDigits(amountText)}` : ""}
+              value={amountText ? `${currency.option.symbol} ${formatAmountDigits(amountText)}` : ""}
               onChangeText={(text) => setAmountText(text.replace(/\D/g, ""))}
             />
           </View>
@@ -520,14 +545,14 @@ export default function EntryForm() {
 
         <Section overflowVisible borderless>
           <View className="gap-3 px-4 pt-3 pb-3">
-            <QuickAmountStrip onAmount={addQuickAmount} />
+            <QuickAmountStrip denominations={currency.denominations} onAmount={addQuickAmount} />
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ overflow: "visible" }} contentContainerStyle={{ gap: 8 }}>
               {(quickFills.length > 0 ? quickFills : QUICK_FILLS.map((label) => ({ id: label, label, amount: null, categoryId: null }))).map((quickFill) => (
                 <QuickFillChip
                   key={quickFill.id}
                   label={quickFill.label}
                   onPress={() => {
-                    if (quickFill.amount) setAmountText(String(quickFill.amount));
+                    if (quickFill.amount) setAmountText(String(Math.round(currency.toDisplay(quickFill.amount))));
                     setNoteText(quickFill.label);
                     const nextCategoryIndex = categoryOptions.findIndex((category) => category.id === quickFill.categoryId);
                     if (nextCategoryIndex >= 0) selectCategory(nextCategoryIndex);

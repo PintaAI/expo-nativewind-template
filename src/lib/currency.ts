@@ -124,3 +124,16 @@ export function formatCurrencyAmount(
 export function formatIdr(amount: number, options?: { compact?: boolean }): string {
   return formatCurrencyAmount(amount, "IDR", options);
 }
+
+export function formatEntryAmount(
+  entry: { nominal: number; originalNominal?: number | null; originalCurrency?: string | null },
+  currency: string,
+  formatBase: (amountIdr: number, options?: { compact?: boolean }) => string,
+  options?: { compact?: boolean },
+): string {
+  if (entry.originalNominal !== null && entry.originalNominal !== undefined && entry.originalCurrency === currency) {
+    return formatCurrencyAmount(entry.originalNominal, entry.originalCurrency, options);
+  }
+
+  return formatBase(entry.nominal, options);
+}

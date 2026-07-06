@@ -7,10 +7,9 @@ import { useAppTheme } from "@/components/AppTheme";
 import { useCurrency } from "@/components/CurrencyProvider";
 import { useCashflowData } from "@/data/cashflow/CashflowDataProvider";
 import type { BudgetPeriod, CashflowCategory } from "@/data/cashflow/types";
+import { CATEGORY_COLOR_OPTIONS, CATEGORY_ICON_OPTIONS } from "@/lib/categoryMapping";
 import { alpha } from "@/lib/color";
 
-const COLOR_OPTIONS = ["#16a34a", "#2563eb", "#ca8a04", "#dc2626", "#7c3aed", "#0891b2"] as const;
-const ICON_OPTIONS = ["tag.fill", "fork.knife", "car.fill", "basket.fill", "banknote.fill", "bolt.fill"] as const satisfies readonly SFSymbol[];
 const BUDGET_PERIODS = [
   { key: "daily", label: "Daily" },
   { key: "weekly", label: "Weekly" },
@@ -79,8 +78,8 @@ export default function CategoriesFormSheet() {
   const appTheme = useAppTheme();
   const { activeManagement, categories, overallBudgets, createCategory, deleteCategory, updateOverallBudget, updateCategoryBudget } = useCashflowData();
   const [name, setName] = useState("");
-  const [color, setColor] = useState<(typeof COLOR_OPTIONS)[number]>(COLOR_OPTIONS[0]);
-  const [icon, setIcon] = useState<SFSymbol>(ICON_OPTIONS[0]);
+  const [color, setColor] = useState(CATEGORY_COLOR_OPTIONS[0]);
+  const [icon, setIcon] = useState(CATEGORY_ICON_OPTIONS[0] as SFSymbol);
   const borderColor = appTheme.isDark ? "rgba(255,255,255,0.12)" : "rgba(15,23,42,0.1)";
   const surface = appTheme.isDark ? "rgba(255,255,255,0.055)" : "rgba(15,23,42,0.035)";
 
@@ -163,7 +162,7 @@ export default function CategoriesFormSheet() {
             style={{ color: appTheme.colors.foreground, backgroundColor: appTheme.colors.background, borderColor, borderWidth: 1 }}
           />
           <View className="flex-row flex-wrap gap-2">
-            {COLOR_OPTIONS.map((option) => {
+            {CATEGORY_COLOR_OPTIONS.map((option) => {
               const selected = color === option;
               return (
                 <Pressable
@@ -180,18 +179,18 @@ export default function CategoriesFormSheet() {
             })}
           </View>
           <View className="flex-row flex-wrap gap-2">
-            {ICON_OPTIONS.map((option) => {
+            {CATEGORY_ICON_OPTIONS.map((option) => {
               const selected = icon === option;
               return (
                 <Pressable
                   key={option}
                   accessibilityRole="button"
                   accessibilityState={{ selected }}
-                  onPress={() => setIcon(option)}
+                  onPress={() => setIcon(option as SFSymbol)}
                   className="h-11 w-11 items-center justify-center rounded-2xl border"
                   style={{ backgroundColor: selected ? alpha(color, 0.18) : appTheme.colors.background, borderColor: selected ? color : borderColor }}
                 >
-                  <SymbolView name={option} size={18} tintColor={selected ? color : appTheme.colors.muted} fallback={<Text style={{ color: selected ? color : appTheme.colors.muted }}>•</Text>} />
+                  <SymbolView name={option as SFSymbol} size={18} tintColor={selected ? color : appTheme.colors.muted} fallback={<Text style={{ color: selected ? color : appTheme.colors.muted }}>•</Text>} />
                 </Pressable>
               );
             })}

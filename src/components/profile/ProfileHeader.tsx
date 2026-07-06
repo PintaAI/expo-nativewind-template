@@ -1,4 +1,4 @@
-import { Pressable, View } from "react-native";
+import { ActivityIndicator, Pressable, View } from "react-native";
 import { Image, type ImageSource } from "expo-image";
 import { SymbolView } from "expo-symbols";
 import { AppText as RNText } from "@/components/AppText";
@@ -9,11 +9,12 @@ type ProfileHeaderProps = {
   avatarSource: ImageSource | null;
   email: string;
   initials: string;
+  isUpdatingPhoto?: boolean;
   name: string;
   onUpdatePhoto: () => void;
 };
 
-export function ProfileHeader({ avatarSource, email, initials, name, onUpdatePhoto }: ProfileHeaderProps) {
+export function ProfileHeader({ avatarSource, email, initials, isUpdatingPhoto = false, name, onUpdatePhoto }: ProfileHeaderProps) {
   const appTheme = useAppTheme();
 
   return (
@@ -21,8 +22,10 @@ export function ProfileHeader({ avatarSource, email, initials, name, onUpdatePho
       <Pressable
         className="relative h-24 w-24 items-center justify-center"
         onPress={onUpdatePhoto}
+        disabled={isUpdatingPhoto}
         accessibilityRole="button"
         accessibilityLabel="Update profile picture"
+        style={{ opacity: isUpdatingPhoto ? 0.7 : 1 }}
       >
         <View className="h-24 w-24 items-center justify-center overflow-hidden rounded-full" style={{ backgroundColor: appTheme.colors.primary }}>
           {avatarSource ? (
@@ -54,6 +57,11 @@ export function ProfileHeader({ avatarSource, email, initials, name, onUpdatePho
             fallback={<RNText style={{ color: appTheme.colors.primary }}>✎</RNText>}
           />
         </View>
+        {isUpdatingPhoto ? (
+          <View className="absolute inset-0 items-center justify-center rounded-full" style={{ backgroundColor: "rgba(0,0,0,0.24)" }}>
+            <ActivityIndicator color={appTheme.colors.inverseForeground} />
+          </View>
+        ) : null}
       </Pressable>
 
       <RNText

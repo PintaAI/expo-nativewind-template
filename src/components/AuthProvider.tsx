@@ -18,6 +18,7 @@ type AuthContextValue = {
   avatarSource: ImageSource | null;
   isAuthenticated: boolean;
   isPending: boolean;
+  refresh: () => Promise<void>;
   signOut: () => Promise<void>;
 };
 
@@ -50,7 +51,7 @@ function getAvatarSource(image: string | null): ImageSource | null {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const { data: session, isPending } = authClient.useSession();
+  const { data: session, isPending, refetch } = authClient.useSession();
   const user = session?.user ?? null;
   const email = user?.email ?? "";
   const displayName = user?.name || email || "Guest";
@@ -80,6 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         avatarSource,
         isAuthenticated: Boolean(user),
         isPending: Boolean(isPending),
+        refresh: () => refetch(),
         signOut,
       }}
     >

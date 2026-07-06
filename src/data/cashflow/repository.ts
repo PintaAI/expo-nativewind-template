@@ -17,6 +17,7 @@ import type {
   CreateManagementInput,
   CreateQuickFillInput,
   CreateRecurringEntryInput,
+  ManagementImageTheme,
   RecurringFrequency,
   UpdateManagementInput,
 } from "./types";
@@ -25,6 +26,7 @@ type ManagementRow = {
   id: string;
   name: string;
   image: string | null;
+  image_theme_json: string | null;
   created_at: string;
   updated_at: string;
   balance: number | null;
@@ -36,6 +38,10 @@ type EntryRow = {
   id: string;
   name: string;
   nominal: number;
+  original_nominal: number | null;
+  original_currency: string | null;
+  exchange_rate_to_idr: number | null;
+  exchange_rate_at: string | null;
   category: string | null;
   category_color: string | null;
   created_by: string | null;
@@ -101,6 +107,18 @@ function nowIso() {
   return new Date().toISOString();
 }
 
+function parseManagementImageTheme(value: string | null): ManagementImageTheme | null {
+  if (!value) return null;
+
+  try {
+    const parsed = JSON.parse(value) as Partial<ManagementImageTheme>;
+    if (parsed.version !== 1 || !parsed.image || !parsed.themeSlug || !parsed.themeSet?.light || !parsed.themeSet.dark) return null;
+    return parsed as ManagementImageTheme;
+  } catch {
+    return null;
+  }
+}
+
 function createId(prefix: string) {
   const randomUuid = globalThis.crypto && "randomUUID" in globalThis.crypto
     ? globalThis.crypto.randomUUID()
@@ -113,6 +131,7 @@ function mapManagement(row: ManagementRow): CashflowManagement {
     id: row.id,
     name: row.name,
     image: row.image,
+    imageTheme: parseManagementImageTheme(row.image_theme_json),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     balance: row.balance ?? 0,
@@ -126,6 +145,10 @@ function mapEntry(row: EntryRow): CashflowEntry {
     id: row.id,
     name: row.name,
     nominal: row.nominal,
+    originalNominal: row.original_nominal,
+    originalCurrency: row.original_currency,
+    exchangeRateToIdr: row.exchange_rate_to_idr,
+    exchangeRateAt: row.exchange_rate_at,
     category: row.category,
     createdBy: row.created_by,
     date: row.date,
@@ -184,16 +207,29 @@ export async function listManagements(db: SQLiteDatabase) {
       m.id,
       m.name,
       m.image,
+      m.image_theme_json,
       m.created_at,
       m.updated_at,
-      COALESCE(SUM(CASE WHEN e.io = 'Income' THEN e.nominal ELSE -e.nominal END), 0) AS balance,
-      COUNT(e.id) AS entry_count,
-      COUNT(DISTINCT mm.id) AS member_count
+      COALESCE(e.balance, 0) AS balance,
+      COALESCE(e.entry_count, 0) AS entry_count,
+      MAX(COALESCE(m.member_count, 0), COALESCE(mm.member_count, 0)) AS member_count
     FROM managements m
-    LEFT JOIN entries e ON e.management_id = m.id AND e.deleted_at IS NULL
-    LEFT JOIN management_members mm ON mm.management_id = m.id AND mm.deleted_at IS NULL
+    LEFT JOIN (
+      SELECT
+        management_id,
+        SUM(CASE WHEN io = 'Income' THEN nominal ELSE -nominal END) AS balance,
+        COUNT(id) AS entry_count
+      FROM entries
+      WHERE deleted_at IS NULL
+      GROUP BY management_id
+    ) e ON e.management_id = m.id
+    LEFT JOIN (
+      SELECT management_id, COUNT(id) AS member_count
+      FROM management_members
+      WHERE deleted_at IS NULL
+      GROUP BY management_id
+    ) mm ON mm.management_id = m.id
     WHERE m.deleted_at IS NULL
-    GROUP BY m.id
     ORDER BY m.created_at ASC
   `);
   return rows.map(mapManagement);
@@ -385,7 +421,7 @@ export async function deleteRecurringEntry(db: SQLiteDatabase, managementId: str
 
 export async function listEntries(db: SQLiteDatabase, managementId: string): Promise<CashflowEntry[]> {
   const rows = await db.getAllAsync<EntryRow>(
-    `SELECT e.id, e.name, e.nominal, c.name AS category, c.color AS category_color, u.name AS created_by, e.date, e.io
+    `SELECT e.id, e.name, e.nominal, e.original_nominal, e.original_currency, e.exchange_rate_to_idr, e.exchange_rate_at, c.name AS category, c.color AS category_color, u.name AS created_by, e.date, e.io
      FROM entries e
      LEFT JOIN categories c ON c.id = e.category_id AND c.deleted_at IS NULL
      LEFT JOIN users u ON u.id = e.created_by_id AND u.deleted_at IS NULL
@@ -441,13 +477,34 @@ export async function updateManagement(db: SQLiteDatabase, managementId: string,
   await db.runAsync(
     `UPDATE managements SET
        name = ?,
+       image_theme_json = CASE WHEN image IS ? THEN image_theme_json ELSE NULL END,
        image = ?,
        updated_at = ?,
        sync_status = CASE WHEN sync_status = 'pending' THEN 'pending' ELSE 'updated' END
      WHERE id = ? AND deleted_at IS NULL`,
     trimmedName,
     image,
+    image,
     updatedAt,
+    managementId,
+  );
+}
+
+export async function updateManagementImageTheme(db: SQLiteDatabase, managementId: string, imageTheme: ManagementImageTheme) {
+  await db.runAsync(
+    `UPDATE managements SET image_theme_json = ? WHERE id = ? AND image = ? AND deleted_at IS NULL`,
+    JSON.stringify(imageTheme),
+    managementId,
+    imageTheme.image,
+  );
+}
+
+export async function setManagementImage(db: SQLiteDatabase, managementId: string, image: string, imageTheme: ManagementImageTheme | null) {
+  await db.runAsync(
+    `UPDATE managements SET image = ?, image_theme_json = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL`,
+    image,
+    imageTheme ? JSON.stringify(imageTheme) : null,
+    nowIso(),
     managementId,
   );
 }
@@ -557,6 +614,10 @@ export async function updateEntry(db: SQLiteDatabase, managementId: string, entr
     `UPDATE entries SET
        name = ?,
        nominal = ?,
+       original_nominal = COALESCE(?, original_nominal),
+       original_currency = COALESCE(?, original_currency),
+       exchange_rate_to_idr = COALESCE(?, exchange_rate_to_idr),
+       exchange_rate_at = COALESCE(?, exchange_rate_at),
        category_id = ?,
        date = ?,
        io = ?,
@@ -565,6 +626,10 @@ export async function updateEntry(db: SQLiteDatabase, managementId: string, entr
      WHERE id = ? AND management_id = ? AND deleted_at IS NULL`,
     input.name.trim() || (input.io === "Income" ? "Income" : "Expense"),
     input.nominal,
+    input.originalNominal ?? null,
+    input.originalCurrency ?? null,
+    input.exchangeRateToIdr ?? null,
+    input.exchangeRateAt ?? null,
     input.categoryId,
     input.date,
     input.io,
@@ -580,13 +645,16 @@ export async function createEntry(db: SQLiteDatabase, managementId: string, inpu
 
   await db.runAsync(
     `INSERT INTO entries (
-       id, name, nominal, original_nominal, original_currency, category_id, date, io,
+       id, name, nominal, original_nominal, original_currency, exchange_rate_to_idr, exchange_rate_at, category_id, date, io,
        management_id, created_by_id, created_at, updated_at, sync_status
-     ) VALUES (?, ?, ?, ?, 'IDR', ?, ?, ?, ?, ?, ?, ?, 'pending')`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`,
     createId("entry"),
     input.name.trim() || (input.io === "Income" ? "Income" : "Expense"),
     input.nominal,
-    input.nominal,
+    input.originalNominal ?? input.nominal,
+    input.originalCurrency ?? "IDR",
+    input.exchangeRateToIdr ?? 1,
+    input.exchangeRateAt ?? createdAt,
     input.categoryId,
     input.date,
     input.io,

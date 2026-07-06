@@ -20,7 +20,7 @@ function parseAmountInput(value: string) {
 
 export default function QuickFillFormSheet() {
   const appTheme = useAppTheme();
-  const { format } = useCurrency();
+  const currency = useCurrency();
   const { activeManagement, categories, quickFills, createQuickFill, deleteQuickFill } = useCashflowData();
   const [label, setLabel] = useState("");
   const [amountText, setAmountText] = useState("");
@@ -33,7 +33,10 @@ export default function QuickFillFormSheet() {
     const trimmed = label.trim();
     if (!trimmed) return;
 
-    await createQuickFill({ label: trimmed, amount: parseAmountInput(amountText), categoryId });
+    const displayAmount = parseAmountInput(amountText);
+    const amount = displayAmount === null ? null : Math.round(currency.toIdr(displayAmount));
+
+    await createQuickFill({ label: trimmed, amount, categoryId });
     setLabel("");
     setAmountText("");
     setCategoryId(null);
@@ -84,7 +87,7 @@ export default function QuickFillFormSheet() {
             style={{ color: appTheme.colors.foreground, backgroundColor: appTheme.colors.background, borderColor, borderWidth: 1 }}
           />
           <TextInput
-            value={amountText ? `Rp ${amountText}` : ""}
+            value={amountText ? `${currency.option.symbol} ${amountText}` : ""}
             onChangeText={(text) => setAmountText(formatAmountInput(parseAmountInput(text)))}
             placeholder="Default amount"
             placeholderTextColor={appTheme.colors.muted}
@@ -158,7 +161,7 @@ export default function QuickFillFormSheet() {
                       {quickFill.label}
                     </Text>
                     <Text className="text-xs" style={{ color: appTheme.colors.muted }}>
-                      {[quickFill.amount ? format(quickFill.amount, { compact: true }) : null, category?.name ?? "No category"].filter(Boolean).join(" · ")}
+                      {[quickFill.amount ? currency.format(quickFill.amount, { compact: true }) : null, category?.name ?? "No category"].filter(Boolean).join(" · ")}
                     </Text>
                   </View>
                   <Pressable

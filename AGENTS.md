@@ -78,6 +78,20 @@ src/
 - `appVersionSource: "remote"`; EAS manages app version bumps.
 - `npm run init-template` changes local APK output names to match the new slug.
 
+## EAS Update Flow
+
+- Before publishing an OTA update, inspect `git status --short` and confirm whether the current dirty/untracked working tree should be shipped. EAS Update exports the current local files, not only committed changes.
+- Use the globally installed `eas` binary in this workspace. `npx eas` may fail because `eas-cli` is not a local dependency.
+- In non-interactive mode, include both `--channel` and `--environment`; EAS requires the environment flag.
+- Production all-platform command:
+  `CI=1 eas update --channel production --environment production --message "<message>" --non-interactive`
+- If `--platform all` fails because the web export cannot resolve `expo-sqlite`'s `wa-sqlite.wasm`, publish native platforms separately:
+  `CI=1 eas update --channel production --environment production --platform android --message "<message>" --non-interactive`
+  `CI=1 eas update --channel production --environment production --platform ios --message "<message>" --non-interactive`
+- `--non-interactive` still prints an Expo CLI warning; setting `CI=1` is the important part for export automation.
+- EAS Update only ships JS/assets to builds with the same runtime version. Because `runtimeVersion.policy = appVersion`, native/config/dependency changes usually require a new EAS build instead.
+- Record the Android/iOS update group dashboard URLs in the final response after publishing.
+
 ## Common Commands
 
 - `npm run init-template` initializes a new app from the template.
