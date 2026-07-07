@@ -43,8 +43,11 @@ export function useSync(): SyncHook {
     const sub = AppState.addEventListener("change", (state) => {
       if (state === "active") void runSync();
     });
-    void runSync();
-    return () => sub.remove();
+    const initialSync = setTimeout(() => void runSync(), 0);
+    return () => {
+      clearTimeout(initialSync);
+      sub.remove();
+    };
   }, [isAuthenticated, isPending, runSync]);
 
   return { status, lastSync, syncNow: runSync };

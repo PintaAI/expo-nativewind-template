@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useSQLiteContext } from "expo-sqlite";
-import type { BudgetPeriod, CashflowDataState, CashflowCategory, CashflowManagement, CashflowOverallBudget, CashflowQuickFill, CashflowRecurringEntry, CreateCategoryInput, CreateEntryInput, CreateQuickFillInput, CreateRecurringEntryInput, ManagementImageTheme, UpdateManagementInput } from "./types";
+import type { BudgetPeriod, CashflowDataState, CashflowCategory, CashflowManagement, CashflowOverallBudget, CashflowQuickFill, CashflowRecurringEntry, CreateCategoryInput, CreateEntryInput, CreateQuickFillInput, CreateRecurringEntryInput, ManagementImageTheme, UpdateCategoryInput, UpdateManagementInput } from "./types";
 import {
   buildActivity,
   buildAnalytics,
@@ -12,7 +12,9 @@ import {
   deleteQuickFill as softDeleteQuickFill,
   deleteCategory as softDeleteCategory,
   updateCategoryBudget as persistCategoryBudget,
+  updateCategory as updateCategoryInRepo,
   createEntry as insertEntry,
+  createTransfer as insertTransfer,
   createManagement as insertManagement,
   emptyCashflowStats,
   getActiveManagementId,
@@ -149,6 +151,11 @@ export function CashflowDataProvider({ children }: { children: ReactNode }) {
       await insertCategory(db, activeManagementId, input);
       await refresh();
     },
+    updateCategory: async (categoryId: string, input: UpdateCategoryInput) => {
+      if (!activeManagementId) return;
+      await updateCategoryInRepo(db, activeManagementId, categoryId, input);
+      await refresh();
+    },
     deleteCategory: async (id: string) => {
       if (!activeManagementId) return;
       await softDeleteCategory(db, activeManagementId, id);
@@ -193,6 +200,10 @@ export function CashflowDataProvider({ children }: { children: ReactNode }) {
     updateEntry: async (id: string, input: CreateEntryInput) => {
       if (!activeManagementId) return;
       await updateEntryInRepo(db, activeManagementId, id, input);
+      await refresh();
+    },
+    createTransfer: async (input) => {
+      await insertTransfer(db, input);
       await refresh();
     },
     refresh,

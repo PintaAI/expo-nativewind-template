@@ -2,6 +2,8 @@ import { useState } from "react";
 import { Pressable, ScrollView, TextInput, View } from "react-native";
 import { router } from "expo-router";
 import { SymbolView, type SFSymbol } from "expo-symbols";
+import { useTranslation } from "react-i18next";
+import i18n from "@/i18n";
 import { AppText as RNText } from "@/components/AppText";
 import { useAppTheme } from "@/components/AppTheme";
 import { useCurrency } from "@/components/CurrencyProvider";
@@ -37,8 +39,6 @@ type SortDirection = "asc" | "desc";
 type FilterValue = string | "all";
 
 const PAGE_SIZE = 20;
-const IO_OPTIONS: IOType[] = ["Income", "Expenses"];
-const DAY_NAMES = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
 
 const CATEGORY_COLORS: Record<string, { background: string; text: string; symbol: SFSymbol }> = {
   Salary: { background: "rgba(22,163,74,0.12)", text: "#16a34a", symbol: "banknote.fill" },
@@ -51,7 +51,8 @@ const CATEGORY_COLORS: Record<string, { background: string; text: string; symbol
 };
 
 function formatDayName(dateKey: string) {
-  return DAY_NAMES[parseDateKey(dateKey).getDay()];
+  const locale = i18n.language === "id" ? "id-ID" : "en-US";
+  return parseDateKey(dateKey).toLocaleDateString(locale, { weekday: "long" });
 }
 
 function TableSymbol({ name, color, size = 15 }: { name: SFSymbol; color: string; size?: number }) {
@@ -133,6 +134,7 @@ function TransactionGlyph({ io, category, selected }: { io: IOType; category: st
 }
 
 function DayFilterNavigator({ dateFilter, onDateFilterChange }: { dateFilter: string; onDateFilterChange: (date: string) => void }) {
+  const { t } = useTranslation();
   const appTheme = useAppTheme();
 
   return (
@@ -140,7 +142,7 @@ function DayFilterNavigator({ dateFilter, onDateFilterChange }: { dateFilter: st
       <Pressable
         onPress={() => onDateFilterChange(addDaysToDateKey(dateFilter, -1))}
         accessibilityRole="button"
-        accessibilityLabel="Hari sebelumnya"
+        accessibilityLabel={t('cashflow.prevDay')}
         className="h-9 w-9 items-center justify-center rounded-full"
       >
         <TableSymbol name="arrow.left" color={appTheme.colors.foreground} />
@@ -151,7 +153,7 @@ function DayFilterNavigator({ dateFilter, onDateFilterChange }: { dateFilter: st
       <Pressable
         onPress={() => onDateFilterChange(addDaysToDateKey(dateFilter, 1))}
         accessibilityRole="button"
-        accessibilityLabel="Hari berikutnya"
+        accessibilityLabel={t('cashflow.nextDay')}
         className="h-9 w-9 items-center justify-center rounded-full"
       >
         <TableSymbol name="arrow.right" color={appTheme.colors.foreground} />
@@ -165,6 +167,7 @@ function compareText(a: string | null, b: string | null) {
 }
 
 export function CashflowTable({ entries, dateFilter, onDateFilterChange, hideTanggal = false }: CashflowTableProps) {
+  const { t } = useTranslation();
   const appTheme = useAppTheme();
   const { currency, format } = useCurrency();
   const [globalFilter, setGlobalFilter] = useState("");
@@ -256,13 +259,13 @@ export function CashflowTable({ entries, dateFilter, onDateFilterChange, hideTan
       <View className="relative">
         {isSelecting ? (
           <View className="absolute inset-0 z-10 flex-row items-center gap-3 rounded-full pl-3 pr-1 py-2" style={{ backgroundColor: appTheme.colors.primary }}>
-            <Checkbox checked={allVisibleSelected} onPress={toggleVisibleRows} label="Select all visible entries" />
+            <Checkbox checked={allVisibleSelected} onPress={toggleVisibleRows} label={t('cashflow.selectAll')} />
             <RNText className="flex-1 text-sm font-semibold" style={{ color: appTheme.colors.inverseForeground }}>
-              {selectedCount} selected
+              {t('cashflow.selected', { count: selectedCount })}
             </RNText>
             <Pressable onPress={handleBulkDelete} className="h-9 flex-row items-center gap-1.5 rounded-full px-3" style={{ backgroundColor: alpha(negative, 0.95) }}>
               <TableSymbol name="trash.fill" color="#ffffff" size={12} />
-              <RNText className="text-xs font-bold text-white">Delete</RNText>
+              <RNText className="text-xs font-bold text-white">{t('cashflow.delete')}</RNText>
             </Pressable>
             <Pressable onPress={clearSelection} className="h-9 w-9 items-center justify-center rounded-full" style={{ backgroundColor: alpha(appTheme.colors.inverseForeground, 0.14) }}>
               <TableSymbol name="xmark" color={appTheme.colors.inverseForeground} size={12} />
@@ -277,7 +280,7 @@ export function CashflowTable({ entries, dateFilter, onDateFilterChange, hideTan
               setGlobalFilter(value);
               setVisibleCount(PAGE_SIZE);
             }}
-            placeholder="Search by name..."
+            placeholder={t('cashflow.searchPlaceholder')}
             placeholderTextColor={appTheme.colors.muted}
             className="min-w-0 flex-1 rounded-2xl px-3 py-2 text-sm"
             style={{ backgroundColor: mutedSurface, color: appTheme.colors.foreground }}
@@ -285,7 +288,7 @@ export function CashflowTable({ entries, dateFilter, onDateFilterChange, hideTan
           <Pressable
             onPress={() => setShowFilters(!showFilters)}
             accessibilityRole="button"
-            accessibilityLabel="Filter entries"
+            accessibilityLabel={t('cashflow.filterEntries')}
             className="h-10 w-10 items-center justify-center rounded-2xl"
             style={{ backgroundColor: mutedSurface, borderColor, borderWidth: 1 }}
           >
@@ -302,37 +305,36 @@ export function CashflowTable({ entries, dateFilter, onDateFilterChange, hideTan
       {showFilters ? (
         <View className="gap-3 rounded-[28px] p-3" style={{ backgroundColor: mutedSurface }}>
           <View className="gap-1.5">
-            <RNText className="text-xs font-medium" style={{ color: appTheme.colors.muted }}>Sort</RNText>
+            <RNText className="text-xs font-medium" style={{ color: appTheme.colors.muted }}>{t('cashflow.sort')}</RNText>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerClassName="gap-2">
-              <SortChip label="Tanggal" field="date" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} />
-              <SortChip label="Nama" field="name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} />
-              <SortChip label="Nominal" field="nominal" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} />
+              <SortChip label={t('cashflow.tanggal')} field="date" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} />
+              <SortChip label={t('cashflow.nama')} field="name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} />
+              <SortChip label={t('cashflow.nominal')} field="nominal" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} />
             </ScrollView>
           </View>
           <View className="gap-1.5">
-            <RNText className="text-xs font-medium" style={{ color: appTheme.colors.muted }}>Type</RNText>
+            <RNText className="text-xs font-medium" style={{ color: appTheme.colors.muted }}>{t('cashflow.type')}</RNText>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerClassName="gap-2">
-              <FilterChip label="All" active={ioFilter === "all"} onPress={() => setIoFilter("all")} />
-              {IO_OPTIONS.map((option) => (
-                <FilterChip key={option} label={option} active={ioFilter === option} onPress={() => setIoFilter(option)} />
-              ))}
+              <FilterChip label={t('cashflow.all')} active={ioFilter === "all"} onPress={() => setIoFilter("all")} />
+              <FilterChip label={t('cashflow.incomeLabel')} active={ioFilter === "Income"} onPress={() => setIoFilter("Income")} />
+              <FilterChip label={t('cashflow.expenseLabel')} active={ioFilter === "Expenses"} onPress={() => setIoFilter("Expenses")} />
             </ScrollView>
           </View>
           <View className="gap-1.5">
-            <RNText className="text-xs font-medium" style={{ color: appTheme.colors.muted }}>Category</RNText>
+            <RNText className="text-xs font-medium" style={{ color: appTheme.colors.muted }}>{t('cashflow.category')}</RNText>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerClassName="gap-2">
-              <FilterChip label="All" active={categoryFilter === "all"} onPress={() => setCategoryFilter("all")} />
+              <FilterChip label={t('cashflow.all')} active={categoryFilter === "all"} onPress={() => setCategoryFilter("all")} />
               {categoryOptions.map((option) => (
                 <FilterChip key={option} label={option} active={categoryFilter === option} onPress={() => setCategoryFilter(option)} />
               ))}
             </ScrollView>
           </View>
           <View className="gap-1.5">
-            <RNText className="text-xs font-medium" style={{ color: appTheme.colors.muted }}>Ditambah oleh</RNText>
+            <RNText className="text-xs font-medium" style={{ color: appTheme.colors.muted }}>{t('cashflow.ditambahOleh')}</RNText>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerClassName="gap-2">
-              <FilterChip label="All" active={creatorFilter === "all"} onPress={() => setCreatorFilter("all")} />
+              <FilterChip label={t('cashflow.all')} active={creatorFilter === "all"} onPress={() => setCreatorFilter("all")} />
               {creatorOptions.map((option) => (
-                <FilterChip key={option} label={option} active={creatorFilter === option} onPress={() => setCreatorFilter(option)} />
+                <FilterChip key={option} label={option === "Unknown" ? t('common.unknown') : option} active={creatorFilter === option} onPress={() => setCreatorFilter(option)} />
               ))}
             </ScrollView>
           </View>
@@ -343,12 +345,12 @@ export function CashflowTable({ entries, dateFilter, onDateFilterChange, hideTan
         <View className="items-center justify-center gap-2 py-16">
           <TableSymbol name="doc.text" color={appTheme.colors.muted} size={40} />
           <RNText className="text-sm font-medium" style={{ color: appTheme.colors.muted }}>
-            {dateFilter ? "Hayo hari ini belum nyatet keuangan yaa?" : "Belum ada tercatat"}
+            {dateFilter ? t('cashflow.empty.withDate') : t('cashflow.empty.withoutDate')}
           </RNText>
           <RNText className="max-w-[280px] text-center text-xs" style={{ color: appTheme.colors.muted }}>
             {dateFilter
-              ? "Catat pengeluaran atau pemasukan hari ini biar keuanganmu terkontrol."
-              : "Mulai dengan mencatat pengeluaran atau pemasukan."}
+              ? t('cashflow.empty.withDateHint')
+              : t('cashflow.empty.withoutDateHint')}
           </RNText>
         </View>
       ) : (
@@ -357,7 +359,7 @@ export function CashflowTable({ entries, dateFilter, onDateFilterChange, hideTan
               const isIncome = entry.io === "Income";
               const selected = !!rowSelection[entry.id];
               const amountColor = isIncome ? positive : negative;
-              const typeLabel = isIncome ? "Income" : "Expense";
+              const typeLabel = isIncome ? t('cashflow.incomeLabel') : t('cashflow.expenseLabel');
 
               return (
                 <Pressable
@@ -404,10 +406,10 @@ export function CashflowTable({ entries, dateFilter, onDateFilterChange, hideTan
       <View className="items-center justify-center py-4">
         {hasMore ? (
           <Pressable onPress={() => setVisibleCount((count) => count + PAGE_SIZE)} className="rounded-full px-4 py-2" style={{ backgroundColor: mutedSurface }}>
-            <RNText className="text-sm font-semibold" style={{ color: appTheme.colors.foreground }}>Load more</RNText>
+            <RNText className="text-sm font-semibold" style={{ color: appTheme.colors.foreground }}>{t('cashflow.loadMore')}</RNText>
           </Pressable>
         ) : (
-          <RNText className="text-sm" style={{ color: appTheme.colors.muted }}>Menampilkan {filteredEntries.length} tercatat</RNText>
+          <RNText className="text-sm" style={{ color: appTheme.colors.muted }}>{t('cashflow.showing', { count: filteredEntries.length })}</RNText>
         )}
       </View>
     </View>

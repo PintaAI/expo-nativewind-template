@@ -4,29 +4,22 @@ import { GlassView } from "expo-glass-effect";
 import { Image } from "expo-image";
 import { router, Stack, type Href } from "expo-router";
 import { SymbolView } from "expo-symbols";
-import type { SFSymbol } from "expo-symbols";
+import { useTranslation } from "react-i18next";
 import { AppText as Text } from "@/components/AppText";
 import { useAppTheme } from "@/components/AppTheme";
 import { useCurrency } from "@/components/CurrencyProvider";
 import { useCashflowData } from "@/data/cashflow/CashflowDataProvider";
 import { alpha } from "@/lib/color";
+import { walletImageToIcon } from "@/lib/categoryMapping";
 import { colorsToThemeSet, extractColors } from "@/lib/palette";
 import { getManagementImageSource } from "@/lib/protectedImage";
 
-const walletSymbols = ["wallet.pass.fill", "house.fill", "briefcase.fill", "person.2.fill", "creditcard.fill"] satisfies SFSymbol[];
-
-function walletIconName(image: string | null): SFSymbol {
-  const symbol = image?.startsWith("symbol:") ? image.replace("symbol:", "") : "wallet.pass.fill";
-  return (walletSymbols as readonly SFSymbol[]).includes(symbol as SFSymbol) ? (symbol as SFSymbol) : "wallet.pass.fill";
-}
-
 export default function WalletFormSheet() {
   const appTheme = useAppTheme();
+  const { t } = useTranslation();
   const { format } = useCurrency();
   const { activeManagementId, managements, setActiveManagementId, updateManagementImageTheme } = useCashflowData();
   const [applyingManagementId, setApplyingManagementId] = useState<string | null>(null);
-  const borderColor = appTheme.isDark ? "rgba(255,255,255,0.12)" : "rgba(15,23,42,0.1)";
-  const surface = appTheme.isDark ? "rgba(255,255,255,0.055)" : "rgba(15,23,42,0.035)";
 
   const applyWalletTheme = async (management: (typeof managements)[number]) => {
     const image = management.image?.trim();
@@ -86,13 +79,13 @@ export default function WalletFormSheet() {
           >
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Add wallet"
+              accessibilityLabel={t("wallet.addWalletLabel")}
               className="flex-row items-center gap-1.5 px-5 py-3"
               onPress={() => router.push("/forms/wallet/detail" as Href)}
             >
               <SymbolView name="plus" size={16} tintColor={appTheme.colors.background} fallback={<Text className="text-base" style={{ color: appTheme.colors.background }}>+</Text>} />
               <Text className="text-base font-bold" style={{ color: appTheme.colors.background }}>
-                Wallet
+                {t("sidebar.wallet")}
               </Text>
             </Pressable>
           </GlassView>
@@ -102,13 +95,13 @@ export default function WalletFormSheet() {
       <ScrollView className="bg-[--app-color-background] flex-1" contentContainerClassName="gap-5 px-5 pb-10 pt-5" contentInsetAdjustmentBehavior="automatic">
         <View className="gap-2">
           <Text className="text-xs font-semibold uppercase tracking-[2px]" style={{ color: appTheme.colors.muted }}>
-            Data Scope
+            {t("wallet.dataScope")}
           </Text>
           <Text className="text-3xl font-black tracking-tight" style={{ color: appTheme.colors.foreground }}>
-            Choose Wallet
+            {t("wallet.chooseWallet")}
           </Text>
           <Text className="text-sm leading-5" style={{ color: appTheme.colors.muted }}>
-            Entries, categories, budgets, quick fills, and summaries follow the active wallet.
+            {t("wallet.chooseWalletDescription")}
           </Text>
         </View>
 
@@ -141,7 +134,7 @@ export default function WalletFormSheet() {
                         style={{ height: "100%", width: "100%" }}
                       />
                     ) : (
-                      <SymbolView name={walletIconName(management.image)} size={20} tintColor={walletPrimary} fallback={<Text style={{ color: walletPrimary }}>•</Text>} />
+                      <SymbolView name={walletImageToIcon(management.image)} size={20} tintColor={walletPrimary} fallback={<Text style={{ color: walletPrimary }}>•</Text>} />
                     )}
                   </View>
                   <View className="min-w-0 flex-1">
@@ -149,7 +142,7 @@ export default function WalletFormSheet() {
                       {management.name}
                     </Text>
                     <Text className="text-xs" style={{ color: appTheme.colors.muted }}>
-                      {management.entryCount} entries · {management.memberCount} member{management.memberCount === 1 ? "" : "s"}
+                      {t("wallet.entriesCount", { count: management.entryCount })} · {t("wallet.memberCount", { count: management.memberCount })}
                     </Text>
                   </View>
                   <View className="items-end gap-1">
@@ -158,11 +151,11 @@ export default function WalletFormSheet() {
                     </Text>
                     {applyingManagementId === management.id ? (
                       <Text className="text-xs font-semibold" style={{ color: walletPrimary }}>
-                        Theming
+                        {t("wallet.theming")}
                       </Text>
                     ) : isActive ? (
                       <Text className="text-xs font-semibold" style={{ color: walletPrimary }}>
-                        Active
+                        {t("wallet.active")}
                       </Text>
                     ) : null}
                   </View>
@@ -174,7 +167,7 @@ export default function WalletFormSheet() {
                   style={{ backgroundColor: appTheme.colors.background }}
                 >
                   <Text className="text-sm font-bold" style={{ color: appTheme.colors.foreground }}>
-                    Manage Wallet
+                    {t("wallet.manageWallet")}
                   </Text>
                 </Pressable>
               </Pressable>

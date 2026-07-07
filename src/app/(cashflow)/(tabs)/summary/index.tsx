@@ -1,5 +1,6 @@
 import { Stack } from "expo-router";
 import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useDrawer } from "@/components/DrawerContext";
 import { AnalyticsCharts, DATE_PRESETS, type DatePeriod } from "@/components/cashflow/AnalyticsCharts";
 import { CashflowStatsCard } from "@/components/cashflow/CashflowStatsCard";
@@ -7,6 +8,7 @@ import { useCashflowData } from "@/data/cashflow/CashflowDataProvider";
 import { buildAnalytics, buildStats } from "@/data/cashflow/repository";
 
 export default function SummaryScreen() {
+  const { t } = useTranslation();
   const { open } = useDrawer();
   const { analytics, entries, categories, activeManagement } = useCashflowData();
   const [datePeriod, setDatePeriod] = useState<DatePeriod>(DATE_PRESETS[0]);
@@ -26,7 +28,7 @@ export default function SummaryScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title: "Summary" }} />
+      <Stack.Screen options={{ title: t('tabs.summary') }} />
       <Stack.Toolbar placement="left">
         <Stack.Toolbar.Button
           icon="sidebar.left"

@@ -1,12 +1,14 @@
+import { useTranslation } from "react-i18next";
 import { SidebarFormSheet } from "@/components/sidebar/SidebarFormSheet";
 
 export default function ReminderFormSheet() {
+  const { t } = useTranslation();
   return (
     <SidebarFormSheet
-      title="Reminder"
-      description="Mock reminder form for scheduled cashflow prompts."
+      title={t("reminder.title")}
+      description={t("reminder.description")}
       icon="bell.fill"
-      fields={["Reminder title", "Time", "Repeat", "Note"]}
+      fields={[t("reminder.fieldTitle"), t("reminder.fieldTime"), t("reminder.fieldRepeat"), t("reminder.fieldNote")]}
     />
   );
 }

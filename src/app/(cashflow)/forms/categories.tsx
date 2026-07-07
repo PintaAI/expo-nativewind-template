@@ -2,8 +2,10 @@ import { useState } from "react";
 import { Alert, Pressable, ScrollView, TextInput, View } from "react-native";
 import { router, Stack } from "expo-router";
 import { SymbolView, type SFSymbol } from "expo-symbols";
+import { useTranslation } from "react-i18next";
 import { AppText as Text } from "@/components/AppText";
 import { useAppTheme } from "@/components/AppTheme";
+import { IconSelector } from "@/components/IconSelector";
 import { useCurrency } from "@/components/CurrencyProvider";
 import { useCashflowData } from "@/data/cashflow/CashflowDataProvider";
 import type { BudgetPeriod, CashflowCategory } from "@/data/cashflow/types";
@@ -27,6 +29,7 @@ function parseBudgetInput(value: string) {
 
 function BudgetField({ label, value, onSave }: { label: string; value: number | null; onSave: (value: number | null) => Promise<void> }) {
   const appTheme = useAppTheme();
+  const { t } = useTranslation();
   const { format } = useCurrency();
   const [draft, setDraft] = useState(formatBudgetInput(value));
   const parsedDraft = parseBudgetInput(draft);
@@ -55,13 +58,13 @@ function BudgetField({ label, value, onSave }: { label: string; value: number | 
           style={{ backgroundColor: appTheme.colors.primary }}
         >
           <Text className="text-xs font-bold" style={{ color: appTheme.colors.inverseForeground }}>
-            Save
+            {t("common.save")}
           </Text>
         </Pressable>
       </View>
       {value ? (
         <Text className="text-xs" style={{ color: appTheme.colors.muted }}>
-          Current: {format(value, { compact: true })}
+          {t("categories.current", { value: format(value, { compact: true }) })}
         </Text>
       ) : null}
     </View>
@@ -76,7 +79,8 @@ function categoryBudgetValue(category: CashflowCategory, period: BudgetPeriod) {
 
 export default function CategoriesFormSheet() {
   const appTheme = useAppTheme();
-  const { activeManagement, categories, overallBudgets, createCategory, deleteCategory, updateOverallBudget, updateCategoryBudget } = useCashflowData();
+  const { t } = useTranslation();
+  const { activeManagement, categories, overallBudgets, createCategory, updateCategory, deleteCategory, updateOverallBudget, updateCategoryBudget } = useCashflowData();
   const [name, setName] = useState("");
   const [color, setColor] = useState(CATEGORY_COLOR_OPTIONS[0]);
   const [icon, setIcon] = useState(CATEGORY_ICON_OPTIONS[0] as SFSymbol);
@@ -92,9 +96,9 @@ export default function CategoriesFormSheet() {
   };
 
   const confirmDelete = (id: string, categoryName: string) => {
-    Alert.alert("Remove category?", `Entries using ${categoryName} will stay saved, but the category will be hidden from new entries.`, [
-      { text: "Cancel", style: "cancel" },
-      { text: "Remove", style: "destructive", onPress: () => deleteCategory(id) },
+    Alert.alert(t("categories.removeCategoryTitle"), t("categories.removeCategoryMessage", { name: categoryName }), [
+      { text: t("common.cancel"), style: "cancel" },
+      { text: t("common.remove"), style: "destructive", onPress: () => deleteCategory(id) },
     ]);
   };
 
@@ -102,7 +106,7 @@ export default function CategoriesFormSheet() {
 
   return (
     <>
-      <Stack.Screen options={{ title: "Categories & Budget" }} />
+      <Stack.Screen options={{ title: t("sidebar.categoriesBudget") }} />
       <Stack.Toolbar placement="left">
         <Stack.Toolbar.Button icon="xmark" onPress={() => router.back()} />
       </Stack.Toolbar>
@@ -117,10 +121,10 @@ export default function CategoriesFormSheet() {
             {activeManagement?.name ?? "Wallet"}
           </Text>
           <Text className="text-3xl font-black tracking-tight" style={{ color: appTheme.colors.foreground }}>
-            Categories & Budget
+            {t("categories.heading")}
           </Text>
           <Text className="text-sm leading-5" style={{ color: appTheme.colors.muted }}>
-            Manage labels and budget limits in one place while keeping wallet and category budgets separate.
+            {t("categories.description")}
           </Text>
         </View>
 
@@ -131,17 +135,17 @@ export default function CategoriesFormSheet() {
             </View>
             <View className="min-w-0 flex-1">
               <Text className="text-base font-bold" style={{ color: appTheme.colors.foreground }}>
-                Overall Budget
+                {t("categories.overallBudget")}
               </Text>
               <Text className="text-xs" style={{ color: appTheme.colors.muted }}>
-                Wallet-wide spending limit.
+                {t("categories.overallBudgetDescription")}
               </Text>
             </View>
           </View>
           {BUDGET_PERIODS.map((period) => (
             <BudgetField
               key={`overall-${period.key}-${overallBudgetByPeriod.get(period.key) ?? 0}`}
-              label={period.label}
+              label={t(`categories.${period.key}`)}
               value={overallBudgetByPeriod.get(period.key) ?? null}
               onSave={(nextValue) => updateOverallBudget(period.key, nextValue)}
             />
@@ -150,12 +154,12 @@ export default function CategoriesFormSheet() {
 
         <View className="gap-3 rounded-3xl border p-4" style={{ borderColor, backgroundColor: surface }}>
           <Text className="text-sm font-bold" style={{ color: appTheme.colors.foreground }}>
-            New Category
+            {t("categories.newCategory")}
           </Text>
           <TextInput
             value={name}
             onChangeText={setName}
-            placeholder="Category name"
+            placeholder={t("categories.categoryNamePlaceholder")}
             placeholderTextColor={appTheme.colors.muted}
             selectionColor={appTheme.colors.primary}
             className="rounded-2xl px-4 py-3 text-base"
@@ -178,23 +182,7 @@ export default function CategoriesFormSheet() {
               );
             })}
           </View>
-          <View className="flex-row flex-wrap gap-2">
-            {CATEGORY_ICON_OPTIONS.map((option) => {
-              const selected = icon === option;
-              return (
-                <Pressable
-                  key={option}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected }}
-                  onPress={() => setIcon(option as SFSymbol)}
-                  className="h-11 w-11 items-center justify-center rounded-2xl border"
-                  style={{ backgroundColor: selected ? alpha(color, 0.18) : appTheme.colors.background, borderColor: selected ? color : borderColor }}
-                >
-                  <SymbolView name={option as SFSymbol} size={18} tintColor={selected ? color : appTheme.colors.muted} fallback={<Text style={{ color: selected ? color : appTheme.colors.muted }}>•</Text>} />
-                </Pressable>
-              );
-            })}
-          </View>
+          <IconSelector options={CATEGORY_ICON_OPTIONS} value={icon} tintColor={color} onChange={setIcon} />
           <Pressable
             accessibilityRole="button"
             onPress={handleCreate}
@@ -202,7 +190,7 @@ export default function CategoriesFormSheet() {
             style={{ backgroundColor: name.trim() ? appTheme.colors.primary : alpha(appTheme.colors.primary, 0.28) }}
           >
             <Text className="font-bold" style={{ color: appTheme.colors.inverseForeground }}>
-              Create Category
+              {t("categories.createCategory")}
             </Text>
           </Pressable>
         </View>
@@ -222,12 +210,12 @@ export default function CategoriesFormSheet() {
                       {category.name}
                     </Text>
                     <Text className="text-xs" style={{ color: appTheme.colors.muted }}>
-                      Category budget
+                      {t("categories.categoryBudget")}
                     </Text>
                   </View>
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel={`Remove ${category.name}`}
+                    accessibilityLabel={t("categories.removeAccessibility", { name: category.name })}
                     onPress={() => confirmDelete(category.id, category.name)}
                     className="h-10 w-10 items-center justify-center rounded-full"
                     style={{ backgroundColor: alpha(appTheme.colors.negative, appTheme.isDark ? 0.18 : 0.1) }}
@@ -235,17 +223,28 @@ export default function CategoriesFormSheet() {
                     <SymbolView name="trash.fill" size={16} tintColor={appTheme.colors.negative} fallback={<Text style={{ color: appTheme.colors.negative }}>×</Text>} />
                   </Pressable>
                 </View>
-                {BUDGET_PERIODS.map((period) => {
+                  {BUDGET_PERIODS.map((period) => {
                   const value = categoryBudgetValue(category, period.key);
                   return (
                     <BudgetField
                       key={`${category.id}-${period.key}-${value ?? 0}`}
-                      label={period.label}
+                      label={t(`categories.${period.key}`)}
                       value={value}
                       onSave={(nextValue) => updateCategoryBudget(category.id, period.key, nextValue)}
                     />
                   );
                 })}
+                <View className="gap-2">
+                  <Text className="text-xs font-semibold uppercase tracking-[1.4px]" style={{ color: appTheme.colors.muted }}>
+                    Icon
+                  </Text>
+                  <IconSelector
+                    options={CATEGORY_ICON_OPTIONS}
+                    value={categoryIcon}
+                    tintColor={categoryColor}
+                    onChange={(nextIcon) => updateCategory(category.id, { name: category.name, color: category.color, icon: nextIcon })}
+                  />
+                </View>
               </View>
             );
           })}

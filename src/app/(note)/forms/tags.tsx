@@ -1,12 +1,14 @@
+import { useTranslation } from "react-i18next";
 import { SidebarFormSheet } from "@/components/sidebar/SidebarFormSheet";
 
 export default function TagsForm() {
+  const { t } = useTranslation();
   return (
     <SidebarFormSheet
-      title="Tags"
-      description="Manage note tags"
+      title={t("tags.title")}
+      description={t("tags.description")}
       icon="tag.fill"
-      fields={["Tag name", "Color"]}
+      fields={[t("tags.fieldName"), t("tags.fieldColor")]}
     />
   );
 }

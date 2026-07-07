@@ -14,6 +14,7 @@ import type {
   CashflowRecurringEntry,
   CreateCategoryInput,
   CreateEntryInput,
+  CreateTransferInput,
   CreateManagementInput,
   CreateQuickFillInput,
   CreateRecurringEntryInput,
@@ -93,6 +94,8 @@ type RecurringEntryRow = {
   frequency: RecurringFrequency;
   next_date: string;
 };
+
+type EntryWriter = Pick<SQLiteDatabase, "getFirstAsync" | "runAsync">;
 
 const EMPTY_STATS: CashflowStats = {
   totalIncome: 0,
@@ -534,6 +537,29 @@ export async function createCategory(db: SQLiteDatabase, managementId: string, i
   );
 }
 
+export async function updateCategory(db: SQLiteDatabase, managementId: string, categoryId: string, input: CreateCategoryInput) {
+  const trimmedName = input.name.trim();
+  if (!trimmedName) return;
+
+  const updatedAt = nowIso();
+
+  await db.runAsync(
+    `UPDATE categories SET
+       name = ?,
+       color = ?,
+       icon = ?,
+       updated_at = ?,
+       sync_status = CASE WHEN sync_status = 'pending' THEN 'pending' ELSE 'updated' END
+     WHERE id = ? AND management_id = ? AND deleted_at IS NULL`,
+    trimmedName,
+    input.color,
+    input.icon,
+    updatedAt,
+    categoryId,
+    managementId,
+  );
+}
+
 export async function deleteCategory(db: SQLiteDatabase, managementId: string, categoryId: string) {
   const updatedAt = nowIso();
 
@@ -639,10 +665,8 @@ export async function updateEntry(db: SQLiteDatabase, managementId: string, entr
   );
 }
 
-export async function createEntry(db: SQLiteDatabase, managementId: string, input: CreateEntryInput) {
-  const createdAt = nowIso();
+async function insertEntry(db: EntryWriter, managementId: string, input: CreateEntryInput, createdAt = nowIso()) {
   const user = await db.getFirstAsync<{ id: string }>("SELECT id FROM users WHERE deleted_at IS NULL ORDER BY created_at LIMIT 1");
-
   await db.runAsync(
     `INSERT INTO entries (
        id, name, nominal, original_nominal, original_currency, exchange_rate_to_idr, exchange_rate_at, category_id, date, io,
@@ -663,6 +687,64 @@ export async function createEntry(db: SQLiteDatabase, managementId: string, inpu
     createdAt,
     createdAt,
   );
+}
+
+export async function createEntry(db: SQLiteDatabase, managementId: string, input: CreateEntryInput) {
+  await insertEntry(db, managementId, input);
+}
+
+export async function createTransfer(db: SQLiteDatabase, input: CreateTransferInput) {
+  const note = input.note?.trim();
+  if (!input.fromManagementId || !input.toManagementId) throw new Error("Choose both wallets before transferring.");
+  if (input.fromManagementId === input.toManagementId) throw new Error("Choose a different destination wallet.");
+  if (input.nominal <= 0) throw new Error("Enter an amount before transferring.");
+
+  await db.withExclusiveTransactionAsync(async (txn) => {
+    const rows = await txn.getAllAsync<Pick<ManagementRow, "id" | "name" | "balance">>(
+      `SELECT
+         m.id,
+         m.name,
+         COALESCE(SUM(CASE WHEN e.io = 'Income' THEN e.nominal ELSE -e.nominal END), 0) AS balance
+       FROM managements m
+       LEFT JOIN entries e ON e.management_id = m.id AND e.deleted_at IS NULL
+       WHERE m.id IN (?, ?) AND m.deleted_at IS NULL
+       GROUP BY m.id, m.name`,
+      input.fromManagementId,
+      input.toManagementId,
+    );
+    const fromManagement = rows.find((row) => row.id === input.fromManagementId);
+    const toManagement = rows.find((row) => row.id === input.toManagementId);
+
+    if (!fromManagement || !toManagement) throw new Error("Wallet not found.");
+    if ((fromManagement.balance ?? 0) < input.nominal) throw new Error("Insufficient funds in the source wallet.");
+
+    const createdAt = nowIso();
+    const metadata = {
+      originalNominal: input.originalNominal ?? input.nominal,
+      originalCurrency: input.originalCurrency ?? "IDR",
+      exchangeRateToIdr: input.exchangeRateToIdr ?? 1,
+      exchangeRateAt: input.exchangeRateAt ?? createdAt,
+    };
+    const noteSuffix = note ? ` · ${note}` : "";
+
+    await insertEntry(txn, input.fromManagementId, {
+      name: `Transfer to ${toManagement.name}${noteSuffix}`,
+      nominal: input.nominal,
+      categoryId: null,
+      date: input.date,
+      io: "Expenses",
+      ...metadata,
+    }, createdAt);
+
+    await insertEntry(txn, input.toManagementId, {
+      name: `Transfer from ${fromManagement.name}${noteSuffix}`,
+      nominal: input.nominal,
+      categoryId: null,
+      date: input.date,
+      io: "Income",
+      ...metadata,
+    }, createdAt);
+  });
 }
 
 export function buildActivity(entries: CashflowEntry[], daysBack = 182): ActivityOverview {

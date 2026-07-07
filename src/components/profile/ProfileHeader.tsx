@@ -1,6 +1,7 @@
 import { ActivityIndicator, Pressable, View } from "react-native";
 import { Image, type ImageSource } from "expo-image";
 import { SymbolView } from "expo-symbols";
+import { useTranslation } from "react-i18next";
 import { AppText as RNText } from "@/components/AppText";
 import { useAppTheme } from "@/components/AppTheme";
 
@@ -16,6 +17,7 @@ type ProfileHeaderProps = {
 
 export function ProfileHeader({ avatarSource, email, initials, isUpdatingPhoto = false, name, onUpdatePhoto }: ProfileHeaderProps) {
   const appTheme = useAppTheme();
+  const { t } = useTranslation();
 
   return (
     <View className="items-center justify-center pt-2">
@@ -70,7 +72,7 @@ export function ProfileHeader({ avatarSource, email, initials, isUpdatingPhoto =
       >
         {name}
       </RNText>
-      <RNText style={appTheme.text.caption}>{email || "Not signed in"}</RNText>
+      <RNText style={appTheme.text.caption}>{email || t("sidebar.notSignedIn")}</RNText>
     </View>
   );
 }

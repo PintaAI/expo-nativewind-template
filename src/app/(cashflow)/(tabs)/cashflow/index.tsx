@@ -3,6 +3,7 @@ import { ScrollView, View } from "react-native";
 import { AppText as RNText } from "@/components/AppText";
 import { Stack } from "expo-router";
 import SegmentedControl from "@expo/ui/community/segmented-control";
+import { useTranslation } from "react-i18next";
 import { useAppTheme } from "@/components/AppTheme";
 import { useDrawer } from "@/components/DrawerContext";
 import { CashflowTable } from "@/components/cashflow/CashflowTable";
@@ -11,6 +12,7 @@ import { useCurrency } from "@/components/CurrencyProvider";
 import { useCashflowData } from "@/data/cashflow/CashflowDataProvider";
 
 export default function CashflowScreen() {
+  const { t } = useTranslation();
   const { open } = useDrawer();
   const appTheme = useAppTheme();
   const { format } = useCurrency();
@@ -36,14 +38,14 @@ export default function CashflowScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title: "Cashflow" }} />
+      <Stack.Screen options={{ title: t('tabs.cashflow') }} />
       <Stack.Toolbar placement="left">
         <Stack.Toolbar.Button icon="sidebar.left" onPress={open} />
       </Stack.Toolbar>
       <Stack.Toolbar placement="right">
         <Stack.Toolbar.View hidesSharedBackground>
           <SegmentedControl
-            values={["List", "Kalender"]}
+            values={[t('cashflow.list'), t('cashflow.kalender')]}
             selectedIndex={view === "list" ? 0 : 1}
             onChange={(event) => setView(event.nativeEvent.selectedSegmentIndex === 0 ? "list" : "calendar")}
             style={{ width: 180 }}
@@ -59,19 +61,19 @@ export default function CashflowScreen() {
           <View className="gap-4">
             <View className="flex-row flex-wrap items-center gap-x-3 gap-y-1">
               <RNText className="text-xs" style={{ color: appTheme.colors.muted }}>
-                <RNText style={{ color: appTheme.colors.muted }}>Net: </RNText>
+                <RNText style={{ color: appTheme.colors.muted }}>{t('cashflow.net')} </RNText>
                 <RNText className="font-medium" style={{ color: appTheme.colors.foreground }}>
                   {format(monthlyTotals.net, { compact: true })}
                 </RNText>
               </RNText>
               <RNText className="text-xs" style={{ color: appTheme.colors.muted }}>
-                <RNText style={{ color: appTheme.colors.muted }}>Income: </RNText>
+                <RNText style={{ color: appTheme.colors.muted }}>{t('cashflow.income')} </RNText>
                 <RNText className="font-medium" style={{ color: positive }}>
                   +{format(monthlyTotals.income, { compact: true })}
                 </RNText>
               </RNText>
               <RNText className="text-xs" style={{ color: appTheme.colors.muted }}>
-                <RNText style={{ color: appTheme.colors.muted }}>Expenses: </RNText>
+                <RNText style={{ color: appTheme.colors.muted }}>{t('cashflow.expenses')} </RNText>
                 <RNText className="font-medium" style={{ color: negative }}>
                   -{format(monthlyTotals.expenses, { compact: true })}
                 </RNText>

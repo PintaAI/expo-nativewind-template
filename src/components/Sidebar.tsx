@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { View, Pressable } from "react-native";
 import { AppText as Text } from "@/components/AppText";
 import { usePathname, type Href, router } from "expo-router";
@@ -8,6 +9,7 @@ import { Image } from "expo-image";
 import { SymbolView, type SFSymbol } from "expo-symbols";
 import { useAuth } from "@/components/AuthProvider";
 import { useAppTheme } from "@/components/AppTheme";
+import { useTranslation } from "react-i18next";
 
 export type SidebarSubItem = {
   label: string;
@@ -38,38 +40,6 @@ type SidebarProps = {
   onOpenProfile: () => void;
   groups?: SidebarGroup[];
 };
-
-const defaultGroups: SidebarGroup[] = [
-  {
-    label: "Cashflow",
-    items: [
-      { label: "Home", icon: "house.fill", route: "/home" as Href },
-      {
-        label: "Wallet",
-        icon: "wallet.pass.fill",
-        route: "/forms/wallet" as Href,
-        subItems: [{ label: "Transfer", icon: "arrow.left.arrow.right", route: "/forms/transfer" as Href }],
-      },
-      { label: "Categories & Budget", icon: "chart.pie.fill", route: "/forms/categories" as Href },
-      { label: "Quick Fill", icon: "bolt.fill", route: "/forms/quick-fill" as Href },
-      { label: "Catat Otomatis", icon: "repeat.circle.fill", route: "/forms/automatic-entry" as Href },
-    ],
-  },
-  {
-    label: "Notes",
-    items: [
-      { label: "Notebooks", icon: "book.fill", badge: "Soon" },
-      { label: "Tags", icon: "tag.fill", badge: "Soon" },
-      { label: "Archive", icon: "archivebox.fill", badge: "Soon" },
-    ],
-  },
-  {
-    label: "Games",
-    items: [
-      { label: "Statie", icon: "gamecontroller.fill", badge: "Soon" },
-    ],
-  },
-];
 
 function isItemActive(pathname: string, item: SidebarNavItem | SidebarSubItem): boolean {
   if (item.activeRoutes) {
@@ -182,11 +152,31 @@ function SidebarNavRow({
   );
 }
 
-export default function Sidebar({ onClose, onOpenProfile, groups = defaultGroups }: SidebarProps) {
+export default function Sidebar({ onClose, onOpenProfile, groups: groupsProp }: SidebarProps) {
+  const { t } = useTranslation();
   const appTheme = useAppTheme();
   const auth = useAuth();
   const pathname = usePathname();
   const progress = useDrawerProgress();
+
+  const defaultGroups = useMemo<SidebarGroup[]>(() => [
+    {
+      label: t('sidebar.cashflow'),
+      items: [
+        { label: t('sidebar.home'), icon: "house.fill" as SFSymbol, route: "/home" as Href },
+        {
+          label: t('sidebar.wallet'),
+          icon: "wallet.pass.fill" as SFSymbol,
+          route: "/forms/wallet" as Href,
+          subItems: [{ label: t('sidebar.transfer'), icon: "arrow.left.arrow.right" as SFSymbol, route: "/forms/transfer" as Href }],
+        },
+        { label: t('sidebar.categoriesBudget'), icon: "chart.pie.fill" as SFSymbol, route: "/forms/categories" as Href },
+        { label: t('sidebar.quickFill'), icon: "bolt.fill" as SFSymbol, route: "/forms/quick-fill" as Href },
+        { label: t('sidebar.catatOtomatis'), icon: "repeat.circle.fill" as SFSymbol, route: "/forms/automatic-entry" as Href },
+      ],
+    },
+  ], [t]);
+  const groups = groupsProp ?? defaultGroups;
   const separatorLine = appTheme.isDark ? "rgba(255,255,255,0.12)" : "rgba(15,23,42,0.1)";
 
   const animatedStyle = useAnimatedStyle(() => ({
@@ -215,7 +205,7 @@ export default function Sidebar({ onClose, onOpenProfile, groups = defaultGroups
     >
       <View className="mb-5 flex-row items-center justify-between px-1">
         <Text className="text-xl font-black tracking-tight" style={{ color: appTheme.colors.foreground }}>
-          Menu
+          {t('sidebar.menu')}
         </Text>
         <Text className="text-xs font-semibold uppercase tracking-[2px]" style={{ color: appTheme.colors.muted }}>
           Ethos
@@ -295,7 +285,7 @@ export default function Sidebar({ onClose, onOpenProfile, groups = defaultGroups
         className="overflow-hidden rounded-3xl"
         onPress={onOpenProfile}
         accessibilityRole="button"
-        accessibilityLabel="Open profile settings"
+        accessibilityLabel={t('sidebar.openProfile')}
       >
         <GlassView
           isInteractive
@@ -337,7 +327,7 @@ export default function Sidebar({ onClose, onOpenProfile, groups = defaultGroups
                 {auth.displayName}
               </Text>
               <Text numberOfLines={1} style={appTheme.text.caption}>
-                {auth.email || (auth.isPending ? "Loading account..." : "Not signed in")}
+                {auth.email || (auth.isPending ? t('sidebar.loading') : t('sidebar.notSignedIn'))}
               </Text>
             </View>
 

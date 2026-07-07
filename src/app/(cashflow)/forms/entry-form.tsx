@@ -7,6 +7,8 @@ import SegmentedControl from "@expo/ui/community/segmented-control";
 import DateTimePicker from "@expo/ui/community/datetime-picker";
 import { SymbolView, type SFSymbol } from "expo-symbols";
 import { GlassView } from "expo-glass-effect";
+import { useTranslation } from "react-i18next";
+import i18n from "@/i18n";
 import { useAppTheme } from "@/components/AppTheme";
 import { useCurrency } from "@/components/CurrencyProvider";
 import { useCashflowData } from "@/data/cashflow/CashflowDataProvider";
@@ -14,25 +16,11 @@ import { alpha } from "@/lib/color";
 import { toDateKey, parseDateKey } from "@/lib/date";
 import { getPreference, setPreference } from "@/lib/preferences";
 
-const QUICK_FILLS = ["Kopi", "Makan siang", "Parkir", "Grab", "Token listrik"];
 const DENOMINATION_COLORS = ["#6b7280", "#64748b", "#a16207", "#9333ea", "#2563eb", "#dc2626", "#16a34a"];
-const DATE_OPTIONS = [
-  { label: "Kemaren", daysAgo: 1 },
-  { label: "Hari ini", daysAgo: 0 },
-  { label: "Tanggal" },
-];
-const FALLBACK_CATEGORIES = [
-  { id: null, name: "Makanan", symbol: "fork.knife" as SFSymbol, color: "#ca8a04" },
-  { id: null, name: "Transport", symbol: "car.fill" as SFSymbol, color: "#ea580c" },
-  { id: null, name: "Belanja", symbol: "basket.fill" as SFSymbol, color: "#dc2626" },
-  { id: null, name: "Tagihan", symbol: "bolt.fill" as SFSymbol, color: "#2563eb" },
-];
 
 const CATEGORY_CHIP_WIDTH = 94;
 const CATEGORY_CHIP_GAP = 8;
 const CATEGORY_CHIP_SNAP = CATEGORY_CHIP_WIDTH + CATEGORY_CHIP_GAP;
-const WEEKDAYS = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"];
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
 
 type WheelPickerFeedbackModule = {
   triggerSoundAndImpact: () => void;
@@ -86,7 +74,10 @@ function getDateDaysAgo(daysAgo: number) {
 }
 
 function formatCompactDate(date: Date) {
-  return `${WEEKDAYS[date.getDay()]}, ${date.getDate()} ${MONTHS[date.getMonth()]}`;
+  const lng = i18n.language === "id" ? "id-ID" : "en-US";
+  const weekday = date.toLocaleDateString(lng, { weekday: "short" });
+  const month = date.toLocaleDateString(lng, { month: "short" });
+  return `${weekday}, ${date.getDate()} ${month}`;
 }
 
 function QuickAmountStrip({ denominations, onAmount }: { denominations: number[]; onAmount: (value: number) => void }) {
@@ -184,6 +175,7 @@ function Section({ title, overflowVisible, borderless, children }: { title?: str
 }
 
 export default function EntryForm() {
+  const { t } = useTranslation();
   const appTheme = useAppTheme();
   const currency = useCurrency();
   const { id } = useLocalSearchParams<{ id?: string }>();
@@ -193,6 +185,28 @@ export default function EntryForm() {
     () => (id ? entries.find((e) => e.id === id) ?? null : null),
     [id, entries],
   );
+  const fallbackCategories = useMemo(() => {
+    const names = i18n.language === "id"
+      ? ["Makanan", "Transport", "Belanja", "Tagihan"]
+      : ["Food", "Transport", "Shopping", "Bills"];
+    return names.map((name, i) => ({
+      id: null as string | null,
+      name,
+      symbol: (["fork.knife", "car.fill", "basket.fill", "bolt.fill"] as SFSymbol[])[i],
+      color: (["#ca8a04", "#ea580c", "#dc2626", "#2563eb"] as const)[i],
+    }));
+  }, [i18n.language]);
+  const fallbackQuickFillItems = useMemo(() => {
+    const labels = i18n.language === "id"
+      ? ["Kopi", "Makan siang", "Parkir", "Grab", "Token listrik"]
+      : ["Coffee", "Lunch", "Parking", "Grab", "Electric token"];
+    return labels.map((label) => ({ id: label, label, amount: null as number | null, categoryId: null as string | null }));
+  }, [i18n.language]);
+  const DATE_OPTIONS = useMemo(() => [
+    { key: "yesterday", label: t('entry.dateOptions.yesterday'), daysAgo: 1 as const },
+    { key: "today", label: t('entry.dateOptions.today'), daysAgo: 0 as const },
+    { key: "date", label: t('entry.dateOptions.date') },
+  ], [t]);
   const categoryOptions = useMemo(
     () => categories.length > 0
       ? categories.map((category) => ({
@@ -201,8 +215,8 @@ export default function EntryForm() {
           symbol: (category.icon ?? "tag.fill") as SFSymbol,
           color: category.color ?? appTheme.colors.primary,
         }))
-      : FALLBACK_CATEGORIES,
-    [appTheme.colors.primary, categories],
+      : fallbackCategories,
+    [appTheme.colors.primary, categories, fallbackCategories],
   );
   const initialCategoryIndex = Math.floor((categoryOptions.length - 1) / 2);
   const addCategoryIndex = categoryOptions.length;
@@ -383,7 +397,7 @@ export default function EntryForm() {
   const handleSave = async () => {
     const displayNominal = parseInt(amountText, 10) || 0;
     if (displayNominal <= 0) {
-      Alert.alert("Amount required", "Enter an amount before saving this entry.");
+      Alert.alert(t('entry.amountRequiredTitle'), t('entry.amountRequiredMessage'));
       return;
     }
 
@@ -462,11 +476,11 @@ export default function EntryForm() {
 
   return (
     <>
-      <Stack.Screen options={{ title: isEditing ? "Edit" : "" }} />
+      <Stack.Screen options={{ title: isEditing ? t('entry.edit') : "" }} />
       <Stack.Toolbar placement="left">
         <Stack.Toolbar.View hidesSharedBackground>
           <SegmentedControl
-            values={["Income", "Expense"]}
+            values={[t('entry.income'), t('entry.expense')]}
             selectedIndex={ioIndex}
             onChange={(event) => setIoIndex(event.nativeEvent.selectedSegmentIndex)}
             tintColor={appTheme.colors.primary}
@@ -478,7 +492,7 @@ export default function EntryForm() {
       <Stack.Toolbar placement="right">
         <Stack.Toolbar.Button icon="eraser" onPress={clearForm} />
         <Stack.Toolbar.Button icon="checkmark" onPress={handleSave} variant="done">
-          Simpan
+          {t('entry.save')}
         </Stack.Toolbar.Button>
       </Stack.Toolbar>
       <Stack.Toolbar placement="bottom">
@@ -496,7 +510,7 @@ export default function EntryForm() {
             {noteText.length === 0 ? (
               <View pointerEvents="none" className="absolute inset-0 justify-center px-3.5">
                 <Text className="text-base" style={{ color: appTheme.colors.muted }}>
-                  Spending apa hari ini?
+                  {t('entry.placeholder.spendingToday')}
                 </Text>
               </View>
             ) : null}
@@ -547,7 +561,7 @@ export default function EntryForm() {
           <View className="gap-3 px-4 pt-3 pb-3">
             <QuickAmountStrip denominations={currency.denominations} onAmount={addQuickAmount} />
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ overflow: "visible" }} contentContainerStyle={{ gap: 8 }}>
-              {(quickFills.length > 0 ? quickFills : QUICK_FILLS.map((label) => ({ id: label, label, amount: null, categoryId: null }))).map((quickFill) => (
+              {(quickFills.length > 0 ? quickFills : fallbackQuickFillItems).map((quickFill) => (
                 <QuickFillChip
                   key={quickFill.id}
                   label={quickFill.label}
@@ -559,7 +573,7 @@ export default function EntryForm() {
                   }}
                 />
               ))}
-              <QuickFillChip label="Tambah" onPress={() => router.push("/forms/quick-fill" as Href)} />
+              <QuickFillChip label={t('entry.tambah')} onPress={() => router.push("/forms/quick-fill" as Href)} />
             </ScrollView>
           </View>
           <View className="h-px" style={{ backgroundColor: appTheme.isDark ? "rgba(255,255,255,0.09)" : "rgba(15,23,42,0.08)" }} />
@@ -660,7 +674,7 @@ export default function EntryForm() {
                 >
                   <FormSymbol name="plus" color={appTheme.colors.primary} size={20} />
                   <Text className="mt-1 text-xs font-semibold" style={{ color: appTheme.colors.primary }}>
-                    Kategori
+                    {t('entry.kategori')}
                   </Text>
                 </Pressable>
               </Animated.View>
@@ -683,9 +697,9 @@ export default function EntryForm() {
         </Section>
 
         <View className="flex-row gap-2">
-          {DATE_OPTIONS.map((option, index) => (
+          {(DATE_OPTIONS).map((option, index) => (
             <DateChoice
-              key={option.label}
+              key={option.key}
               label={option.label}
               subtitle={option.daysAgo !== undefined ? (
                 <Text className="text-xs" style={{ color: appTheme.colors.muted }}>
@@ -693,7 +707,7 @@ export default function EntryForm() {
                 </Text>
               ) : (
                 <Text className="text-xs" style={{ color: appTheme.colors.muted }}>
-                  {customDate ? formatCompactDate(customDate) : "Tap to pick"}
+                  {customDate ? formatCompactDate(customDate) : t('entry.tapToPick')}
                 </Text>
               )}
               selected={dateIndex === index}

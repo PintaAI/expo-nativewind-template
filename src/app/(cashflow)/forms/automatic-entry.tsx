@@ -5,6 +5,7 @@ import SegmentedControl from "@expo/ui/community/segmented-control";
 import { router, Stack } from "expo-router";
 import { SymbolView, type SFSymbol } from "expo-symbols";
 
+import { useTranslation } from "react-i18next";
 import { AppText as Text } from "@/components/AppText";
 import { useAppTheme } from "@/components/AppTheme";
 import { useCurrency } from "@/components/CurrencyProvider";
@@ -30,6 +31,7 @@ function parseAmountInput(value: string) {
 
 export default function AutomaticEntryFormSheet() {
   const appTheme = useAppTheme();
+  const { t } = useTranslation();
   const { format } = useCurrency();
   const { activeManagement, categories, recurringEntries, createRecurringEntry, deleteRecurringEntry } = useCashflowData();
   const [name, setName] = useState("");
@@ -47,12 +49,12 @@ export default function AutomaticEntryFormSheet() {
     const nominal = parseAmountInput(amountText);
 
     if (!trimmed) {
-      Alert.alert("Name required", "Add a label for this automatic entry.");
+      Alert.alert(t("autoEntry.nameRequiredTitle"), t("autoEntry.nameRequiredMessage"));
       return;
     }
 
     if (!nominal) {
-      Alert.alert("Amount required", "Enter an amount before saving this automatic entry.");
+      Alert.alert(t("autoEntry.amountRequiredTitle"), t("autoEntry.amountRequiredMessage"));
       return;
     }
 
@@ -74,9 +76,9 @@ export default function AutomaticEntryFormSheet() {
   };
 
   const confirmDelete = (id: string, entryName: string) => {
-    Alert.alert("Remove automatic entry?", `${entryName} will stop creating scheduled cashflow entries.`, [
-      { text: "Cancel", style: "cancel" },
-      { text: "Remove", style: "destructive", onPress: () => deleteRecurringEntry(id) },
+    Alert.alert(t("autoEntry.removeTitle"), t("autoEntry.removeMessage", { name: entryName }), [
+      { text: t("common.cancel"), style: "cancel" },
+      { text: t("common.remove"), style: "destructive", onPress: () => deleteRecurringEntry(id) },
     ]);
   };
 
@@ -103,19 +105,19 @@ export default function AutomaticEntryFormSheet() {
             {activeManagement?.name ?? "Wallet"}
           </Text>
           <Text className="text-3xl font-black tracking-tight" style={{ color: appTheme.colors.foreground }}>
-            Catat Otomatis
+            {t("autoEntry.heading")}
           </Text>
           <Text className="text-sm leading-5" style={{ color: appTheme.colors.muted }}>
-            Create recurring income or expense rules. Due rules are posted as real entries when cashflow data refreshes.
+            {t("autoEntry.description")}
           </Text>
         </View>
 
         <View className="gap-3 rounded-3xl border p-4" style={{ borderColor, backgroundColor: surface }}>
           <Text className="text-sm font-bold" style={{ color: appTheme.colors.foreground }}>
-            New Automatic Entry
+            {t("autoEntry.newEntry")}
           </Text>
           <SegmentedControl
-            values={["Income", "Expense"]}
+            values={[t("entry.income"), t("entry.expense")]}
             selectedIndex={ioIndex}
             onChange={(event) => setIoIndex(event.nativeEvent.selectedSegmentIndex)}
             tintColor={appTheme.colors.primary}
@@ -124,7 +126,7 @@ export default function AutomaticEntryFormSheet() {
           <TextInput
             value={name}
             onChangeText={setName}
-            placeholder="Entry name"
+            placeholder={t("autoEntry.entryNamePlaceholder")}
             placeholderTextColor={appTheme.colors.muted}
             selectionColor={appTheme.colors.primary}
             className="rounded-2xl px-4 py-3 text-base"
@@ -133,7 +135,7 @@ export default function AutomaticEntryFormSheet() {
           <TextInput
             value={amountText ? `Rp ${amountText}` : ""}
             onChangeText={(text) => setAmountText(formatAmountInput(parseAmountInput(text)))}
-            placeholder="Amount"
+            placeholder={t("autoEntry.amountPlaceholder")}
             placeholderTextColor={appTheme.colors.muted}
             keyboardType="number-pad"
             selectionColor={appTheme.colors.primary}
@@ -153,7 +155,7 @@ export default function AutomaticEntryFormSheet() {
                   style={{ backgroundColor: selected ? alpha(appTheme.colors.primary, 0.16) : appTheme.colors.background, borderColor: selected ? appTheme.colors.primary : borderColor }}
                 >
                   <Text className="text-sm font-bold" style={{ color: selected ? appTheme.colors.primary : appTheme.colors.foreground }}>
-                    {frequency.label}
+                    {t(`autoEntry.${frequency.value}`)}
                   </Text>
                 </Pressable>
               );
@@ -166,7 +168,7 @@ export default function AutomaticEntryFormSheet() {
             style={{ backgroundColor: appTheme.colors.background, borderColor }}
           >
             <Text className="text-base" style={{ color: appTheme.colors.foreground }}>
-              Next run
+              {t("autoEntry.nextRun")}
             </Text>
             <Text className="text-base font-bold" style={{ color: appTheme.colors.primary }}>
               {formatDateKey(nextDate)}
@@ -181,7 +183,7 @@ export default function AutomaticEntryFormSheet() {
               style={{ backgroundColor: categoryId === null ? alpha(appTheme.colors.primary, 0.14) : appTheme.colors.background, borderColor: categoryId === null ? appTheme.colors.primary : borderColor }}
             >
               <Text className="text-sm font-semibold" style={{ color: categoryId === null ? appTheme.colors.primary : appTheme.colors.foreground }}>
-                No category
+                {t("autoEntry.noCategory")}
               </Text>
             </Pressable>
             {categories.map((category) => {
@@ -210,7 +212,7 @@ export default function AutomaticEntryFormSheet() {
           {recurringEntries.map((entry) => {
             const category = categories.find((item) => item.id === entry.categoryId) ?? null;
             const color = entry.io === "Income" ? appTheme.colors.positive : (category?.color ?? appTheme.colors.negative);
-            const frequencyLabel = FREQUENCIES.find((item) => item.value === entry.frequency)?.label ?? entry.frequency;
+            const frequencyLabel = t(`autoEntry.${entry.frequency}`);
 
             return (
               <View key={entry.id} className="rounded-3xl border p-4" style={{ borderColor, backgroundColor: surface }}>
@@ -223,15 +225,15 @@ export default function AutomaticEntryFormSheet() {
                       {entry.name}
                     </Text>
                     <Text className="text-xs" style={{ color: appTheme.colors.muted }}>
-                      {[format(entry.nominal, { compact: true }), entry.io, frequencyLabel, category?.name ?? "No category"].join(" · ")}
+                      {[format(entry.nominal, { compact: true }), entry.io, frequencyLabel, category?.name ?? t("autoEntry.noCategory")].join(" · ")}
                     </Text>
                     <Text className="mt-1 text-xs font-semibold" style={{ color: appTheme.colors.primary }}>
-                      Next: {formatDateKey(entry.nextDate)}
+                      {t("autoEntry.nextLabel", { date: formatDateKey(entry.nextDate) })}
                     </Text>
                   </View>
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel={`Remove ${entry.name}`}
+                    accessibilityLabel={t("autoEntry.removeMessage", { name: entry.name }).replace(/\.+$/, "")}
                     onPress={() => confirmDelete(entry.id, entry.name)}
                     className="h-10 w-10 items-center justify-center rounded-full"
                     style={{ backgroundColor: alpha(appTheme.colors.negative, appTheme.isDark ? 0.18 : 0.1) }}

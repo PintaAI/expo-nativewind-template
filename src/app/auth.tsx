@@ -1,21 +1,23 @@
 import { useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
 import { router, Stack } from "expo-router";
+import { useTranslation } from "react-i18next";
 import { AppText } from "@/components/AppText";
 import { useAppTheme } from "@/components/AppTheme";
 import { authClient } from "@/lib/auth-client";
 
 type AuthProvider = "google" | "apple";
 
-const providers: { id: AuthProvider; label: string; mark: string }[] = [
-  { id: "google", label: "Continue with Google", mark: "G" },
-  { id: "apple", label: "Continue with Apple", mark: "A" },
-];
-
 export default function Auth() {
   const appTheme = useAppTheme();
+  const { t } = useTranslation();
   const [loadingProvider, setLoadingProvider] = useState<AuthProvider | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const providers: { id: AuthProvider; label: string; mark: string }[] = [
+    { id: "google", label: t("auth.continueWithGoogle"), mark: "G" },
+    { id: "apple", label: t("auth.continueWithApple"), mark: "A" },
+  ];
   const borderColor = appTheme.isDark ? "rgba(255,255,255,0.12)" : "rgba(15,23,42,0.1)";
   const surface = appTheme.isDark ? "rgba(255,255,255,0.055)" : "rgba(15,23,42,0.035)";
 
@@ -36,14 +38,14 @@ export default function Auth() {
 
       if (authError) {
         console.error("[auth] Social sign-in error", authError);
-        setError(authError.message || authError.statusText || "Unable to sign in. Please try again.");
+        setError(authError.message || authError.statusText || t("auth.error"));
         return;
       }
 
       router.replace("/");
     } catch (caughtError) {
       console.error("[auth] Social sign-in threw", caughtError);
-      setError("Unable to sign in. Please try again.");
+      setError(t("auth.error"));
     } finally {
       setLoadingProvider(null);
     }
@@ -56,7 +58,10 @@ export default function Auth() {
           title: "",
           contentStyle: { backgroundColor: appTheme.colors.background },
           headerTransparent: true,
+          headerBlurEffect: "systemMaterial",
           headerStyle: { backgroundColor: "transparent" },
+          headerShadowVisible: false,
+          headerLargeTitleShadowVisible: false,
         }}
       />
       <Stack.Toolbar placement="right">
@@ -72,13 +77,13 @@ export default function Auth() {
       >
         <View className="gap-2">
           <AppText className="text-xs font-semibold uppercase tracking-[2px]" style={{ color: appTheme.colors.muted }}>
-            Account
+            {t("auth.account")}
           </AppText>
           <AppText className="text-3xl font-black tracking-tight" style={{ color: appTheme.colors.foreground }}>
-            Sign in
+            {t("auth.signIn")}
           </AppText>
           <AppText className="text-sm leading-5" style={{ color: appTheme.colors.muted }}>
-            Continue with Google or Apple to sync your account.
+            {t("auth.description")}
           </AppText>
         </View>
         <View className="gap-3 rounded-3xl border p-4" style={{ borderColor, backgroundColor: surface }}>

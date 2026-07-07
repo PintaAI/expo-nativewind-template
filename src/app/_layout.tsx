@@ -1,4 +1,5 @@
 import "../global.css";
+import "@/i18n";
 import { Suspense } from "react";
 import { ThemeProvider, DefaultTheme, DarkTheme, Stack } from "expo-router";
 import { SQLiteProvider } from "expo-sqlite";
@@ -64,7 +65,10 @@ function RootNavigator() {
                         sheetExpandsWhenScrolledToEdge: false,
                         headerLargeTitle: false,
                         headerTransparent: true,
+                        headerBlurEffect: "systemMaterial",
                         headerStyle: { backgroundColor: "transparent" },
+                        headerShadowVisible: false,
+                        headerLargeTitleShadowVisible: false,
                         sheetGrabberVisible: true,
                       }}
                     />
@@ -74,6 +78,10 @@ function RootNavigator() {
                         presentation: "modal",
                         headerLargeTitle: false,
                         headerTransparent: true,
+                        headerBlurEffect: "systemMaterial",
+                        headerStyle: { backgroundColor: "transparent" },
+                        headerShadowVisible: false,
+                        headerLargeTitleShadowVisible: false,
                       }}
                     />
                   </Stack>

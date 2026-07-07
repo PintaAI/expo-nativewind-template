@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Alert, Pressable, View } from "react-native";
+import { useTranslation } from "react-i18next";
+import { Alert, Linking, View } from "react-native";
 import { router } from "expo-router";
 import { useSQLiteContext } from "expo-sqlite";
 import * as Updates from "expo-updates";
+import * as WebBrowser from "expo-web-browser";
 import { Button, Form, Host, Image, Label, Picker, RNHostView, Section, Slider, Text, Toggle } from "@expo/ui/swift-ui";
 import {
   background,
@@ -21,7 +23,6 @@ import {
   tint,
 } from "@expo/ui/swift-ui/modifiers";
 import { APP_NAME, APP_VERSION } from "@/config/app";
-import { AppText } from "@/components/AppText";
 import { useAuth } from "@/components/AuthProvider";
 import { useAppTheme, type ThemeName } from "@/components/AppTheme";
 import { useCurrency } from "@/components/CurrencyProvider";
@@ -38,34 +39,19 @@ import { clearPreferences } from "@/lib/preferences";
 import { formatRelativeTime } from "@/lib/relativeTime";
 
 const SETTINGS_ICON_SIZE = 15;
-
-function formatUpdateDate(date: Date | undefined) {
-  if (!date) return "Unavailable";
-
-  return date.toLocaleString(undefined, {
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-}
-
-function formatUpdateId(updateId: string | undefined) {
-  return updateId ? updateId.slice(0, 8) : "Embedded build";
-}
+const PRIVACY_POLICY_URL = "https://cashflow-notion.vercel.app/privacy";
+const SUPPORT_EMAIL = "rorezxez@gmail.com";
 
 export function ProfileContent() {
   const appTheme = useAppTheme();
   const auth = useAuth();
   const db = useSQLiteContext();
   const cashflowData = useCashflowData();
+  const { t, i18n } = useTranslation();
   const { theme, setTheme } = appTheme;
   const { currency, setCurrency } = useCurrency();
   const sync = useSyncStatus();
   const updates = Updates.useUpdates();
-  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
-  const [biometricsEnabled, setBiometricsEnabled] = useState(false);
   const [isCheckingForUpdate, setIsCheckingForUpdate] = useState(false);
   const [isUpdatingPhoto, setIsUpdatingPhoto] = useState(false);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
@@ -90,7 +76,7 @@ export function ProfileContent() {
   }, [appTheme.textSpacing]);
 
   const showMockAction = (title: string) => {
-    Alert.alert(title, "This is mock UI for now. Functionality will be connected later.");
+    Alert.alert(title, t("profile.mockMessage"));
   };
 
   const updateProfilePhoto = async () => {
@@ -108,7 +94,7 @@ export function ProfileContent() {
       await updateProfile(formData);
       await auth.refresh();
     } catch (error) {
-      Alert.alert("Photo upload failed", error instanceof Error ? error.message : "Unable to upload your profile photo right now.");
+      Alert.alert(t("profile.photoUploadFailedTitle"), error instanceof Error ? error.message : t("profile.photoUploadFailedMessage"));
     } finally {
       setIsUpdatingPhoto(false);
     }
@@ -116,7 +102,7 @@ export function ProfileContent() {
 
   const checkForUpdates = async () => {
     if (!Updates.isEnabled) {
-      Alert.alert("Updates unavailable", "OTA update checks are only available in release builds with expo-updates enabled.");
+      Alert.alert(t("profile.updatesUnavailableTitle"), t("profile.updatesUnavailableMessage"));
       return;
     }
 
@@ -127,18 +113,46 @@ export function ProfileContent() {
 
       if (update.isAvailable || update.isRollBackToEmbedded) {
         await Updates.fetchUpdateAsync();
-        Alert.alert("Update ready", "A new update has been downloaded and can be applied now.", [
-          { text: "Later", style: "cancel" },
-          { text: "Restart", onPress: () => void Updates.reloadAsync() },
+        Alert.alert(t("profile.updateReadyTitle"), t("profile.updateReadyMessage"), [
+          { text: t("profile.updateReadyLater"), style: "cancel" },
+          { text: t("profile.updateReadyRestart"), onPress: () => void Updates.reloadAsync() },
         ]);
         return;
       }
 
-      Alert.alert("Up to date", "You already have the latest available update for this build.");
+      Alert.alert(t("profile.upToDateTitle"), t("profile.upToDateMessage"));
     } catch (error) {
-      Alert.alert("Update check failed", error instanceof Error ? error.message : "Unable to check for updates right now.");
+      Alert.alert(t("profile.updateCheckFailedTitle"), error instanceof Error ? error.message : t("profile.updateCheckFailedMessage"));
     } finally {
       setIsCheckingForUpdate(false);
+    }
+  };
+
+  const openPrivacyPolicy = async () => {
+    try {
+      await WebBrowser.openBrowserAsync(PRIVACY_POLICY_URL, {
+        dismissButtonStyle: "done",
+        presentationStyle: WebBrowser.WebBrowserPresentationStyle.PAGE_SHEET,
+      });
+    } catch (error) {
+      Alert.alert(t("profile.privacyPolicyErrorTitle"), error instanceof Error ? error.message : t("profile.privacyPolicyErrorMessage"));
+    }
+  };
+
+  const contactSupport = async () => {
+    const subject = encodeURIComponent("Ethos Support");
+    const url = `mailto:${SUPPORT_EMAIL}?subject=${subject}`;
+
+    try {
+      const canOpenMail = await Linking.canOpenURL(url);
+      if (!canOpenMail) {
+        Alert.alert(t("profile.contactSupport"), SUPPORT_EMAIL);
+        return;
+      }
+
+      await Linking.openURL(url);
+    } catch (error) {
+      Alert.alert(t("profile.contactSupport"), error instanceof Error ? error.message : SUPPORT_EMAIL);
     }
   };
 
@@ -157,10 +171,10 @@ export function ProfileContent() {
       } catch (error) {
         console.warn("Failed to clear auth session after account deletion", error);
       }
-      Alert.alert("Account deleted", "Your account and stored app data have been removed.");
+      Alert.alert(t("profile.accountDeletedTitle"), t("profile.accountDeletedMessage"));
       router.replace("/");
     } catch (error) {
-      Alert.alert("Could not delete account", error instanceof Error ? error.message : "Please try again later.");
+      Alert.alert(t("profile.deleteAccountFailedTitle"), error instanceof Error ? error.message : t("profile.deleteAccountFailedMessage"));
     } finally {
       setIsDeletingAccount(false);
     }
@@ -168,11 +182,11 @@ export function ProfileContent() {
 
   const confirmDeleteAccount = () => {
     Alert.alert(
-      "Delete account?",
-      "This permanently removes your account, sessions, private wallets, notes, API key, push subscriptions, and local app data from this device.",
+      t("profile.deleteConfirmTitle"),
+      t("profile.deleteConfirmMessage"),
       [
-        { text: "Cancel", style: "cancel" },
-        { text: "Delete Account", style: "destructive", onPress: () => void deleteUserAccount() },
+        { text: t("profile.deleteConfirmCancel"), style: "cancel" },
+        { text: t("profile.deleteConfirmDelete"), style: "destructive", onPress: () => void deleteUserAccount() },
       ],
     );
   };
@@ -208,21 +222,27 @@ export function ProfileContent() {
   };
 
   const updateStatus = !Updates.isEnabled
-    ? "Unavailable in this build"
+    ? t("profile.updateStatusIncluded")
     : updates.isUpdatePending
-      ? "Downloaded, restart available"
+      ? t("profile.updateStatusPending")
       : updates.isUpdateAvailable
-        ? "Update available"
+        ? t("profile.updateStatusAvailable")
         : updates.isChecking || isCheckingForUpdate
-          ? "Checking..."
-          : "Up to date";
-  const updateChannel = Updates.channel ?? "None";
-  const updateRuntime = Updates.runtimeVersion ?? "Unavailable";
-  const currentUpdate = formatUpdateId(updates.currentlyRunning.updateId);
-  const currentUpdateDate = formatUpdateDate(updates.currentlyRunning.createdAt);
+          ? t("profile.updateStatusChecking")
+          : t("profile.updateStatusUpToDate");
   const lastUpdateCheck = updates.lastCheckForUpdateTimeSinceRestart
     ? formatRelativeTime(updates.lastCheckForUpdateTimeSinceRestart)
-    : "Not checked this session";
+    : t("profile.updateNotChecked");
+  const syncStatusText = sync.status === "syncing"
+    ? t("profile.syncStatusSyncing")
+    : sync.status === "error"
+      ? t("profile.syncStatusError")
+      : t("profile.syncStatusLastSync", { time: formatRelativeTime(sync.lastSync) });
+  const syncActionTitle = sync.status === "error"
+    ? t("profile.syncActionRetry")
+    : sync.status === "syncing"
+      ? t("profile.syncStatusSyncing")
+      : `${syncStatusText} - ${t("profile.syncActionNow")}`;
 
   return (
     <View
@@ -279,132 +299,64 @@ export function ProfileContent() {
             />
           </Section>
 
-          <Section title="Account">
+          <Section title={t("profile.account")}>
             {auth.isAuthenticated ? (
               <Label
                 title={auth.displayName}
                 icon={<Image systemName="person.crop.circle" size={SETTINGS_ICON_SIZE} color={appTheme.colors.primary} />}
-                modifiers={[...rowModifiers, onTapGesture(() => showMockAction("Personal Information"))]}
+                modifiers={[...rowModifiers, onTapGesture(() => showMockAction(t("profile.personalInformation")))]}
               />
             ) : null}
-            <Button
-              onPress={auth.isAuthenticated ? isDeletingAccount ? undefined : auth.signOut : () => router.push("/auth")}
-              modifiers={[...rowModifiers, tint(appTheme.colors.primary)]}
-            >
-              <Label
-                title={auth.isAuthenticated ? "Sign Out" : "Sign In"}
-                icon={<Image systemName={auth.isAuthenticated ? "rectangle.portrait.and.arrow.right" : "person.badge.key"} size={SETTINGS_ICON_SIZE} color={appTheme.colors.primary} />}
-              />
-            </Button>
-            <Label
-              title="Security"
-              icon={<Image systemName="lock.shield" size={SETTINGS_ICON_SIZE} color={appTheme.colors.primary} />}
-              modifiers={[...rowModifiers, onTapGesture(() => showMockAction("Security"))]}
-            />
-            <Toggle
-              isOn={biometricsEnabled}
-              onIsOnChange={setBiometricsEnabled}
-              modifiers={[...rowModifiers, tint(appTheme.colors.primary)]}
-            >
-              <Label
-                title="Biometric Unlock"
-                icon={<Image systemName="faceid" size={SETTINGS_ICON_SIZE} color={appTheme.colors.primary} />}
-              />
-            </Toggle>
+            {!auth.isAuthenticated ? (
+              <Button
+                onPress={() => router.push("/auth")}
+                modifiers={[...rowModifiers, tint(appTheme.colors.primary)]}
+              >
+                <Label
+                  title={t("common.signIn")}
+                  icon={<Image systemName="person.badge.key" size={SETTINGS_ICON_SIZE} color={appTheme.colors.primary} />}
+                />
+              </Button>
+            ) : null}
+            {auth.isAuthenticated ? (
+              <Button
+                onPress={sync.status === "syncing" ? undefined : () => void sync.syncNow()}
+                modifiers={[...rowModifiers, tint(sync.status === "error" ? appTheme.colors.negative : appTheme.colors.primary)]}
+              >
+                <Label
+                  title={syncActionTitle}
+                  icon={<Image systemName="arrow.triangle.2.circlepath" size={SETTINGS_ICON_SIZE} color={sync.status === "error" ? appTheme.colors.negative : appTheme.colors.primary} />}
+                />
+              </Button>
+            ) : null}
             {auth.isAuthenticated ? (
               <Button
                 onPress={isDeletingAccount ? undefined : confirmDeleteAccount}
                 modifiers={[...rowModifiers, tint(appTheme.colors.negative)]}
               >
                 <Label
-                  title={isDeletingAccount ? "Deleting Account" : "Delete Account"}
+                  title={isDeletingAccount ? t("profile.deletingAccount") : t("profile.deleteAccount")}
                   icon={<Image systemName="trash" size={SETTINGS_ICON_SIZE} color={appTheme.colors.negative} />}
                 />
               </Button>
             ) : null}
           </Section>
 
-          {auth.isAuthenticated ? (
-            <Section
-              header={
-                <RNHostView matchContents>
-                  <View
-                    className="flex-row items-center justify-between px-4"
-                    style={{
-                      backgroundColor: appTheme.colors.background,
-                      paddingBottom: Math.max(6, Math.round(appTheme.textSize * 0.4)),
-                      paddingTop: Math.max(6, Math.round(appTheme.textSize * 0.4)),
-                    }}
-                  >
-                    <View className="flex-row items-center gap-2">
-                      {sync.status === "syncing" ? (
-                        <ActivityIndicator size="small" color={appTheme.colors.muted} />
-                      ) : null}
-                      <AppText style={appTheme.text.caption}>Last sync</AppText>
-                      <AppText
-                        style={{
-                          color:
-                            sync.status === "error" ? appTheme.colors.negative : appTheme.colors.foreground,
-                          fontSize: appTheme.textSize - 1,
-                          letterSpacing: appTheme.textSpacing,
-                        }}
-                      >
-                        {sync.status === "syncing"
-                          ? "Syncing…"
-                          : sync.status === "error"
-                            ? "Sync failed"
-                            : formatRelativeTime(sync.lastSync)}
-                      </AppText>
-                    </View>
-                    <Pressable
-                      onPress={sync.status === "syncing" ? undefined : () => void sync.syncNow()}
-                      disabled={sync.status === "syncing"}
-                      accessibilityRole="button"
-                      accessibilityLabel={sync.status === "error" ? "Retry sync" : "Sync now"}
-                    >
-                      <AppText
-                        style={{
-                          color: sync.status === "error" ? appTheme.colors.negative : appTheme.colors.primary,
-                          fontSize: appTheme.textSize - 1,
-                          fontWeight: "600",
-                          letterSpacing: appTheme.textSpacing,
-                          opacity: sync.status === "syncing" ? 0.4 : 1,
-                        }}
-                      >
-                        {sync.status === "error" ? "Retry" : "Sync now"}
-                      </AppText>
-                    </Pressable>
-                  </View>
-                </RNHostView>
-              }
-            >
-              <Text
-                modifiers={[
-                  hidden(),
-                  frame({ height: 0 }),
-                  listRowBackground(rowBackground),
-                  listRowInsets({ top: 0, bottom: 0, leading: 0, trailing: 0 }),
-                  listRowSeparator("hidden"),
-                ]}
-              />
-            </Section>
-          ) : null}
-
-          <Section title="Appearance">
+          <Section title={t("profile.appearance")}>
             <Toggle
               isOn={appTheme.isDark}
               onIsOnChange={setDarkMode}
               modifiers={[...rowModifiers, tint(appTheme.colors.primary)]}
             >
               <Label
-                title="Dark Mode"
+                title={t("profile.darkMode")}
                 icon={<Image systemName="moon" size={SETTINGS_ICON_SIZE} color={appTheme.colors.primary} />}
               />
             </Toggle>
             <Picker
               label={
                 <Label
-                  title="Accent Color"
+                  title={t("profile.accentColor")}
                   icon={<Image systemName="paintpalette" size={SETTINGS_ICON_SIZE} color={appTheme.colors.primary} />}
                 />
               }
@@ -423,7 +375,7 @@ export function ProfileContent() {
               min={14}
               max={22}
               step={1}
-              label={<Text>{`Text Size: ${appTheme.usesSystemTextSettings && !isEditingTextSize ? "System" : `${draftTextSize} pt`}`}</Text>}
+              label={<Text>{t("profile.textSizeLabel", { value: appTheme.usesSystemTextSettings && !isEditingTextSize ? t("profile.system") : `${draftTextSize} pt` })}</Text>}
               onValueChange={updateDraftTextSize}
               onEditingChanged={commitDraftTextSize}
               modifiers={[...rowModifiers, tint(appTheme.colors.primary)]}
@@ -433,7 +385,7 @@ export function ProfileContent() {
               min={-0.5}
               max={1.5}
               step={0.25}
-              label={<Text>{`Text Spacing: ${appTheme.usesSystemTextSettings && !isEditingTextSpacing ? "System" : draftTextSpacing.toFixed(2)}`}</Text>}
+              label={<Text>{t("profile.textSpacingLabel", { value: appTheme.usesSystemTextSettings && !isEditingTextSpacing ? t("profile.system") : draftTextSpacing.toFixed(2) })}</Text>}
               onValueChange={updateDraftTextSpacing}
               onEditingChanged={commitDraftTextSpacing}
               modifiers={[...rowModifiers, tint(appTheme.colors.primary)]}
@@ -443,27 +395,17 @@ export function ProfileContent() {
               modifiers={[...rowModifiers, tint(appTheme.colors.primary)]}
             >
               <Label
-                title="Use System Text Settings"
+                title={t("profile.useSystemTextSettings")}
                 icon={<Image systemName="textformat.size" size={SETTINGS_ICON_SIZE} color={appTheme.colors.primary} />}
               />
             </Button>
           </Section>
 
-          <Section title="App">
-            <Toggle
-              isOn={notificationsEnabled}
-              onIsOnChange={setNotificationsEnabled}
-              modifiers={[...rowModifiers, tint(appTheme.colors.primary)]}
-            >
-              <Label
-                title="Notifications"
-                icon={<Image systemName="bell.badge" size={SETTINGS_ICON_SIZE} color={appTheme.colors.primary} />}
-              />
-            </Toggle>
+          <Section title={t("profile.app")}>
             <Picker
               label={
                 <Label
-                  title="Currency"
+                  title={t("profile.currency")}
                   icon={<Image systemName="dollarsign.circle" size={SETTINGS_ICON_SIZE} color={appTheme.colors.primary} />}
                 />
               }
@@ -480,71 +422,57 @@ export function ProfileContent() {
             <Picker
               label={
                 <Label
-                  title="Language"
+                  title={t("language.label")}
                   icon={<Image systemName="globe" size={SETTINGS_ICON_SIZE} color={appTheme.colors.primary} />}
                 />
               }
-              selection="English"
-              onSelectionChange={() => showMockAction("Language")}
+              selection={i18n.resolvedLanguage || "en"}
+              onSelectionChange={(value) => i18n.changeLanguage(String(value))}
               modifiers={[...rowModifiers, pickerStyle("menu"), tint(appTheme.colors.primary)]}
             >
-              <Text modifiers={[tag("English")]}>English</Text>
+              <Text modifiers={[tag("en")]}>{t("language.english")}</Text>
+              <Text modifiers={[tag("id")]}>{t("language.indonesia")}</Text>
             </Picker>
           </Section>
 
-          <Section title="Updates" footer={<Text>{`Last checked: ${lastUpdateCheck}`}</Text>}>
+          <Section title={t("profile.updates")} footer={<Text>{t("profile.lastChecked", { time: lastUpdateCheck })}</Text>}>
             <Button
               onPress={checkForUpdates}
               modifiers={[...rowModifiers, tint(appTheme.colors.primary)]}
             >
               <Label
-                title={isCheckingForUpdate ? "Checking for Updates" : "Check for Updates"}
+                title={isCheckingForUpdate ? t("profile.checkingForUpdates") : t("profile.checkForUpdates")}
                 icon={<Image systemName="arrow.clockwise.circle" size={SETTINGS_ICON_SIZE} color={appTheme.colors.primary} />}
               />
             </Button>
             <Label
-              title={`Status: ${updateStatus}`}
+              title={t("profile.statusLabel", { status: updateStatus })}
               icon={<Image systemName="icloud.and.arrow.down" size={SETTINGS_ICON_SIZE} color={appTheme.colors.primary} />}
               modifiers={rowModifiers}
             />
             <Label
-              title={`Channel: ${updateChannel}`}
-              icon={<Image systemName="point.3.connected.trianglepath.dotted" size={SETTINGS_ICON_SIZE} color={appTheme.colors.primary} />}
-              modifiers={rowModifiers}
-            />
-            <Label
-              title={`Runtime: ${updateRuntime}`}
-              icon={<Image systemName="shippingbox" size={SETTINGS_ICON_SIZE} color={appTheme.colors.primary} />}
-              modifiers={rowModifiers}
-            />
-            <Label
-              title={`Current update: ${currentUpdate}`}
+              title={t("profile.appVersion", { version: APP_VERSION })}
               icon={<Image systemName="info.circle" size={SETTINGS_ICON_SIZE} color={appTheme.colors.primary} />}
-              modifiers={rowModifiers}
-            />
-            <Label
-              title={`Installed: ${currentUpdateDate}`}
-              icon={<Image systemName="calendar" size={SETTINGS_ICON_SIZE} color={appTheme.colors.primary} />}
               modifiers={rowModifiers}
             />
           </Section>
 
-          <Section title="Get Help" footer={<Text>{`${APP_NAME} ${APP_VERSION}`}</Text>}>
+          <Section title={t("profile.getHelp")} footer={<Text>{`${APP_NAME} ${APP_VERSION}`}</Text>}>
             <Button
-              onPress={() => showMockAction("Help Center")}
+              onPress={() => void openPrivacyPolicy()}
               modifiers={[...rowModifiers, tint(appTheme.colors.primary)]}
             >
               <Label
-                title="Help Center"
-                icon={<Image systemName="questionmark.circle" size={SETTINGS_ICON_SIZE} color={appTheme.colors.primary} />}
+                title={t("profile.privacyPolicy")}
+                icon={<Image systemName="hand.raised" size={SETTINGS_ICON_SIZE} color={appTheme.colors.primary} />}
               />
             </Button>
             <Button
-              onPress={() => showMockAction("Contact Support")}
+              onPress={() => void contactSupport()}
               modifiers={[...rowModifiers, tint(appTheme.colors.primary)]}
             >
               <Label
-                title="Contact Support"
+                title={`${t("profile.contactSupport")}: ${SUPPORT_EMAIL}`}
                 icon={
                   <Image
                     systemName="bubble.left.and.bubble.right"
@@ -555,6 +483,19 @@ export function ProfileContent() {
               />
             </Button>
           </Section>
+          {auth.isAuthenticated ? (
+            <Section>
+              <Button
+                onPress={isDeletingAccount ? undefined : auth.signOut}
+                modifiers={[...rowModifiers, tint(appTheme.colors.negative)]}
+              >
+                <Label
+                  title={t("common.signOut")}
+                  icon={<Image systemName="rectangle.portrait.and.arrow.right" size={SETTINGS_ICON_SIZE} color={appTheme.colors.negative} />}
+                />
+              </Button>
+            </Section>
+          ) : null}
         </Form>
       </Host>
     </View>

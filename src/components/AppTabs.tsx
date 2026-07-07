@@ -1,8 +1,10 @@
+import { useTranslation } from "react-i18next";
 import { NativeTabs } from "expo-router/unstable-native-tabs";
 import { useAppTheme } from "./AppTheme";
 
 export default function AppTabs() {
   const appTheme = useAppTheme();
+  const { t } = useTranslation();
 
   return (
     <NativeTabs
@@ -12,15 +14,15 @@ export default function AppTabs() {
       labelStyle={{ color: appTheme.colors.foreground }}
     >
       <NativeTabs.Trigger name="index">
-        <NativeTabs.Trigger.Label>Home</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Label>{t("tabs.home")}</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf="house.fill" md="home" />
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="(cashflow)">
-        <NativeTabs.Trigger.Label>Cashflow</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Label>{t("tabs.cashflow")}</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf="dollarsign.circle.fill" md="attach_money" />
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="settings">
-        <NativeTabs.Trigger.Label>Settings</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Label>{t("tabs.settings")}</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf="gearshape.fill" md="settings" />
       </NativeTabs.Trigger>
     </NativeTabs>

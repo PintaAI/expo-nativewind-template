@@ -1,5 +1,6 @@
 import { Pressable, ScrollView, View } from "react-native";
 import { router, Stack } from "expo-router";
+import { useTranslation } from "react-i18next";
 import { AppText as Text } from "@/components/AppText";
 import { SymbolView, type SFSymbol } from "expo-symbols";
 import { useAppTheme } from "@/components/AppTheme";
@@ -15,6 +16,7 @@ type SidebarFormSheetProps = {
 
 function PlaceholderField({ label }: { label: string }) {
   const appTheme = useAppTheme();
+  const { t } = useTranslation();
   const fieldBackground = appTheme.isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.045)";
   const fieldBorder = appTheme.isDark ? "rgba(255,255,255,0.1)" : "rgba(15,23,42,0.08)";
 
@@ -27,14 +29,16 @@ function PlaceholderField({ label }: { label: string }) {
         className="h-12 rounded-2xl border px-4"
         style={{ backgroundColor: fieldBackground, borderColor: fieldBorder, justifyContent: "center" }}
       >
-        <Text style={{ color: appTheme.colors.muted }}>Placeholder input</Text>
+        <Text style={{ color: appTheme.colors.muted }}>{t("sidebarForm.placeholder")}</Text>
       </View>
     </View>
   );
 }
 
-export function SidebarFormSheet({ title, description, icon, fields, actions = ["Cancel", "Save"] }: SidebarFormSheetProps) {
+export function SidebarFormSheet({ title, description, icon, fields, actions: actionsProp }: SidebarFormSheetProps) {
   const appTheme = useAppTheme();
+  const { t } = useTranslation();
+  const actions = actionsProp ?? [t("common.cancel"), t("common.save")];
   const accentSurface = alpha(appTheme.colors.primary, appTheme.isDark ? 0.18 : 0.12);
   const borderColor = appTheme.isDark ? "rgba(255,255,255,0.1)" : "rgba(15,23,42,0.08)";
 

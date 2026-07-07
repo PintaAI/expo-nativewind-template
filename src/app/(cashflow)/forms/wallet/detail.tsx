@@ -4,24 +4,19 @@ import { GlassView } from "expo-glass-effect";
 import { Image } from "expo-image";
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import { SymbolView } from "expo-symbols";
-import type { SFSymbol } from "expo-symbols";
+import { useTranslation } from "react-i18next";
 import { AppText as Text } from "@/components/AppText";
 import { useAppTheme } from "@/components/AppTheme";
+import { IconSelector } from "@/components/IconSelector";
 import { useCashflowData } from "@/data/cashflow/CashflowDataProvider";
 import type { CashflowManagementMember } from "@/data/cashflow/types";
 import { alpha } from "@/lib/color";
 import { createManagementInvite, updateManagementImage } from "@/lib/api/managements";
 import { authBaseURL } from "@/lib/auth-client";
+import { WALLET_ICON_OPTIONS, walletImageToIcon } from "@/lib/categoryMapping";
 import { appendUploadImage, pickUploadImage } from "@/lib/imageUpload";
 import { colorsToThemeSet, extractColors } from "@/lib/palette";
 import { getManagementImageSource, getProfileImageSource } from "@/lib/protectedImage";
-
-const iconChoices = ["wallet.pass.fill", "house.fill", "briefcase.fill", "person.2.fill", "creditcard.fill"] satisfies SFSymbol[];
-
-function getIconName(image: string | null): SFSymbol {
-  const symbol = image?.startsWith("symbol:") ? image.replace("symbol:", "") : "wallet.pass.fill";
-  return (iconChoices as readonly SFSymbol[]).includes(symbol as SFSymbol) ? (symbol as SFSymbol) : "wallet.pass.fill";
-}
 
 function isPicture(image: string | null) {
   return !!image && !image.startsWith("symbol:");
@@ -30,6 +25,7 @@ function isPicture(image: string | null) {
 export default function WalletDetailScreen() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const appTheme = useAppTheme();
+  const { t } = useTranslation();
   const { managements, createManagement, updateManagement, listManagementMembers, setManagementImage } = useCashflowData();
   const isNewWallet = !id;
   const management = managements.find((item) => item.id === id) ?? null;
@@ -88,13 +84,13 @@ export default function WalletDetailScreen() {
       const { code } = await createManagementInvite(management.id);
       const inviteLink = `${authBaseURL}/invite?code=${encodeURIComponent(code)}`;
       await Share.share({
-        title: `Join ${management.name}`,
+        title: t("wallet.joinTitle", { name: management.name }),
         url: inviteLink,
-        message: `Join ${management.name} on Ethos: ${inviteLink}`,
+        message: t("wallet.joinMessage", { name: management.name, link: inviteLink }),
       });
     } catch (error) {
       console.error("Failed to create wallet invite", error);
-      Alert.alert("Invite unavailable", "Could not create an invite link for this wallet. Please try again.");
+      Alert.alert(t("wallet.inviteUnavailableTitle"), t("wallet.inviteUnavailableMessage"));
     } finally {
       setIsSharingInvite(false);
     }
@@ -135,7 +131,7 @@ export default function WalletDetailScreen() {
       await setManagementImage(management.id, uploadedImage, imageTheme);
     } catch (error) {
       console.error("Failed to upload wallet image", error);
-      Alert.alert("Photo upload failed", error instanceof Error ? error.message : "Unable to upload the wallet photo right now.");
+      Alert.alert(t("wallet.photoUploadFailedTitle"), error instanceof Error ? error.message : t("wallet.photoUploadFailedMessage"));
     } finally {
       setIsUploadingImage(false);
     }
@@ -144,9 +140,9 @@ export default function WalletDetailScreen() {
   if (!isNewWallet && !management) {
     return (
       <View className="flex-1 items-center justify-center bg-[--app-color-background] px-6">
-        <Stack.Screen options={{ title: "Wallet Detail" }} />
+        <Stack.Screen options={{ title: t("wallet.walletDetail") }} />
         <Text className="text-center text-base font-semibold" style={{ color: appTheme.colors.foreground }}>
-          Wallet not found.
+          {t("wallet.walletNotFound")}
         </Text>
       </View>
     );
@@ -154,7 +150,7 @@ export default function WalletDetailScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title: isNewWallet ? "New Wallet" : management?.name }} />
+      <Stack.Screen options={{ title: isNewWallet ? t("wallet.newWallet") : management?.name }} />
       <Stack.Toolbar placement="right">
         <Stack.Toolbar.View hidesSharedBackground>
           <GlassView
@@ -165,14 +161,14 @@ export default function WalletDetailScreen() {
           >
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Save wallet"
+              accessibilityLabel={t("wallet.saveWalletLabel")}
               className="px-6 py-3"
               onPress={handleSave}
               disabled={!name.trim() || isSaving}
               style={{ opacity: name.trim() && !isSaving ? 1 : 0.55 }}
             >
               <Text className="text-base font-bold" style={{ color: appTheme.colors.background }}>
-                {isSaving ? "Saving" : "Save"}
+                {isSaving ? t("wallet.saving") : t("wallet.save")}
               </Text>
             </Pressable>
           </GlassView>
@@ -184,7 +180,7 @@ export default function WalletDetailScreen() {
         <View className="items-center gap-3">
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={management ? "Upload wallet photo" : "Wallet image"}
+          accessibilityLabel={management ? t("wallet.uploadPhotoLabel") : t("wallet.walletImageLabel")}
           disabled={!management || isUploadingImage}
           onPress={handleUploadImage}
           className="h-20 w-20 items-center justify-center overflow-hidden rounded-[28px]"
@@ -199,12 +195,12 @@ export default function WalletDetailScreen() {
               style={{ height: "100%", width: "100%" }}
             />
           ) : (
-            <SymbolView name={getIconName(image)} size={34} tintColor={appTheme.colors.primary} fallback={<Text style={{ color: appTheme.colors.primary }}>•</Text>} />
+            <SymbolView name={walletImageToIcon(image)} size={34} tintColor={appTheme.colors.primary} fallback={<Text style={{ color: appTheme.colors.primary }}>•</Text>} />
           )}
           {isUploadingImage ? (
             <View className="absolute inset-0 items-center justify-center" style={{ backgroundColor: "rgba(0,0,0,0.24)" }}>
               <Text className="text-xs font-bold" style={{ color: appTheme.colors.inverseForeground }}>
-                Uploading
+                {t("wallet.uploading")}
               </Text>
             </View>
           ) : null}
@@ -212,7 +208,7 @@ export default function WalletDetailScreen() {
         {management ? (
           <>
             <Text className="text-xs font-semibold uppercase tracking-[2px]" style={{ color: appTheme.colors.muted }}>
-              Management ID
+              {t("wallet.managementId")}
             </Text>
             <Text selectable className="text-center text-xs" style={{ color: appTheme.colors.muted }}>
               {management.id}
@@ -220,19 +216,19 @@ export default function WalletDetailScreen() {
           </>
         ) : (
           <Text className="text-xs font-semibold uppercase tracking-[2px]" style={{ color: appTheme.colors.muted }}>
-            New Wallet
+            {t("wallet.newWallet")}
           </Text>
         )}
       </View>
 
       <View className="gap-3 rounded-3xl border p-4" style={{ borderColor, backgroundColor: surface }}>
         <Text className="text-sm font-bold" style={{ color: appTheme.colors.foreground }}>
-          Wallet Profile
+          {t("wallet.walletProfile")}
         </Text>
         <TextInput
           value={name}
           onChangeText={setName}
-          placeholder="Wallet name"
+          placeholder={t("wallet.walletNamePlaceholder")}
           placeholderTextColor={appTheme.colors.muted}
           selectionColor={appTheme.colors.primary}
           className="rounded-2xl px-4 py-3 text-base"
@@ -251,46 +247,29 @@ export default function WalletDetailScreen() {
         {management ? (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Upload wallet photo"
+            accessibilityLabel={t("wallet.uploadPhotoLabel")}
             disabled={isUploadingImage}
             onPress={handleUploadImage}
             className="min-h-11 items-center justify-center rounded-2xl"
             style={{ backgroundColor: alpha(appTheme.colors.primary, 0.14), opacity: isUploadingImage ? 0.6 : 1 }}
           >
             <Text className="text-sm font-bold" style={{ color: appTheme.colors.primary }}>
-              {isUploadingImage ? "Uploading Photo" : "Upload Photo"}
+              {isUploadingImage ? t("wallet.uploadingPhoto") : t("wallet.uploadPhoto")}
             </Text>
           </Pressable>
         ) : null}
-        <View className="flex-row flex-wrap gap-2">
-          {iconChoices.map((icon) => {
-            const value = `symbol:${icon}`;
-            const isSelected = image === value;
-            return (
-              <Pressable
-                key={icon}
-                accessibilityRole="button"
-                accessibilityState={{ selected: isSelected }}
-                onPress={() => setImage(value)}
-                className="h-11 w-11 items-center justify-center rounded-2xl border"
-                style={{ backgroundColor: isSelected ? alpha(appTheme.colors.primary, 0.14) : appTheme.colors.background, borderColor: isSelected ? appTheme.colors.primary : borderColor }}
-              >
-                <SymbolView name={icon} size={19} tintColor={isSelected ? appTheme.colors.primary : appTheme.colors.foreground} fallback={<Text style={{ color: appTheme.colors.foreground }}>•</Text>} />
-              </Pressable>
-            );
-          })}
-        </View>
+        <IconSelector options={WALLET_ICON_OPTIONS} value={walletImageToIcon(image)} onChange={(nextIcon) => setImage(`symbol:${nextIcon}`)} />
       </View>
 
         {management ? (
           <View className="gap-3 rounded-3xl border p-4" style={{ borderColor, backgroundColor: surface }}>
             <View className="flex-row items-center justify-between gap-3">
               <Text className="text-sm font-bold" style={{ color: appTheme.colors.foreground }}>
-                Members
+                {t("wallet.members")}
               </Text>
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Invite wallet member"
+                accessibilityLabel={t("wallet.inviteLabel")}
                 onPress={handleShareInvite}
                 disabled={isSharingInvite}
                 className="flex-row items-center gap-2 rounded-full px-3 py-2"
@@ -298,7 +277,7 @@ export default function WalletDetailScreen() {
               >
                 <SymbolView name="square.and.arrow.up" size={15} tintColor={appTheme.colors.primary} fallback={<Text style={{ color: appTheme.colors.primary }}>+</Text>} />
                 <Text className="text-xs font-bold" style={{ color: appTheme.colors.primary }}>
-                  {isSharingInvite ? "Creating" : "Invite"}
+                  {isSharingInvite ? t("wallet.creating") : t("wallet.invite")}
                 </Text>
               </Pressable>
             </View>
@@ -325,7 +304,7 @@ export default function WalletDetailScreen() {
                       {member.name}
                     </Text>
                     <Text numberOfLines={1} className="text-xs" style={{ color: appTheme.colors.muted }}>
-                      {member.email ?? "No email"}
+                      {member.email ?? t("wallet.noEmail")}
                     </Text>
                   </View>
                   <Text className="text-xs font-bold uppercase" style={{ color: appTheme.colors.primary }}>

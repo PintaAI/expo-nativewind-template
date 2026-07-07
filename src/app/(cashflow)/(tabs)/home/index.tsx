@@ -4,6 +4,7 @@ import { AppText as RNText } from "@/components/AppText";
 import { router, Stack, type Href } from "expo-router";
 import { SymbolView } from "expo-symbols";
 import { GlassView } from "expo-glass-effect";
+import { useTranslation } from "react-i18next";
 
 import { useDrawer } from "@/components/DrawerContext";
 import { useAppTheme } from "@/components/AppTheme";
@@ -15,6 +16,7 @@ import { useCashflowData } from "@/data/cashflow/CashflowDataProvider";
 import { toDateKey } from "@/lib/date";
 
 export default function HomeScreen() {
+  const { t } = useTranslation();
   const { open } = useDrawer();
   const appTheme = useAppTheme();
   const { activity, entries, stats, activeManagement } = useCashflowData();
@@ -29,7 +31,7 @@ export default function HomeScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title: "Home" }} />
+      <Stack.Screen options={{ title: t('tabs.home') }} />
 
       <Stack.Toolbar placement="left">
         <Stack.Toolbar.Button
@@ -47,13 +49,13 @@ export default function HomeScreen() {
             >
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Catat"
+              accessibilityLabel={t('entry.catat')}
               className="flex-row items-center gap-1.5 px-6 py-3"
               onPress={() => router.push("/forms/entry-form" as Href)}
             >
               <SymbolView name="plus" size={16} tintColor={appTheme.colors.background} fallback={<RNText className="text-base" style={{ color: appTheme.colors.background }}>+</RNText>} />
               <RNText className="font-bold text-base" style={{ color: appTheme.colors.background }}>
-                Catat
+                {t('entry.catat')}
               </RNText>
             </Pressable>
           </GlassView>

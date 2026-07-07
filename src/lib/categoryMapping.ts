@@ -1,3 +1,5 @@
+import type { SFSymbol } from "expo-symbols";
+
 const webColorToHex: Record<string, string> = {
   default: "#64748b",
   gray: "#6b7280",
@@ -51,7 +53,15 @@ const webIconToSFSymbol: Record<string, string> = {
   Water: "drop.fill",
 };
 
-export const CATEGORY_ICON_OPTIONS = Object.values(webIconToSFSymbol);
+export const CATEGORY_ICON_OPTIONS = Object.values(webIconToSFSymbol) as SFSymbol[];
+
+export const WALLET_ICON_OPTIONS = [
+  "wallet.pass.fill",
+  "house.fill",
+  "briefcase.fill",
+  "person.2.fill",
+  "creditcard.fill",
+] satisfies SFSymbol[];
 
 const sfSymbolToWebIcon = Object.fromEntries(Object.entries(webIconToSFSymbol).map(([web, sf]) => [sf, web]));
 
@@ -75,4 +85,9 @@ export function serverCategoryIconToLocal(icon: string | null | undefined): stri
 export function localCategoryIconToServer(icon: string | null | undefined): string | undefined {
   if (!icon) return undefined;
   return sfSymbolToWebIcon[icon] ?? icon;
+}
+
+export function walletImageToIcon(image: string | null | undefined): SFSymbol {
+  const symbol = image?.startsWith("symbol:") ? image.replace("symbol:", "") : WALLET_ICON_OPTIONS[0];
+  return (WALLET_ICON_OPTIONS as readonly SFSymbol[]).includes(symbol as SFSymbol) ? (symbol as SFSymbol) : WALLET_ICON_OPTIONS[0];
 }

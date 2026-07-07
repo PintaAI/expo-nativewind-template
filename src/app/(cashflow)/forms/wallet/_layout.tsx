@@ -1,6 +1,8 @@
 import { Stack } from "expo-router";
+import { useTranslation } from "react-i18next";
 
 export default function WalletLayout() {
+  const { t } = useTranslation();
   return (
     <Stack
       initialRouteName="index"
@@ -9,8 +11,8 @@ export default function WalletLayout() {
         headerShadowVisible: false,
       }}
     >
-      <Stack.Screen name="index" options={{ title: "Wallet" }} />
-      <Stack.Screen name="detail" options={{ title: "Wallet Detail" }} />
+      <Stack.Screen name="index" options={{ title: t("sidebar.wallet") }} />
+      <Stack.Screen name="detail" options={{ title: t("wallet.walletDetail") }} />
     </Stack>
   );
 }

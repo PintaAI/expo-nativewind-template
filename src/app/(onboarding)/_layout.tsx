@@ -5,6 +5,10 @@ export default function OnboardingLayout() {
     <Stack
       screenOptions={{
         headerTransparent: true,
+        headerBlurEffect: "systemMaterial",
+        headerStyle: { backgroundColor: "transparent" },
+        headerShadowVisible: false,
+        headerLargeTitleShadowVisible: false,
       }}
     />
   );

@@ -2,6 +2,7 @@ import { Alert, Pressable, ScrollView, TextInput, View } from "react-native";
 import { router, Stack } from "expo-router";
 import { SymbolView, type SFSymbol } from "expo-symbols";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { AppText as Text } from "@/components/AppText";
 import { useAppTheme } from "@/components/AppTheme";
@@ -19,6 +20,7 @@ function parseAmountInput(value: string) {
 }
 
 export default function QuickFillFormSheet() {
+  const { t } = useTranslation();
   const appTheme = useAppTheme();
   const currency = useCurrency();
   const { activeManagement, categories, quickFills, createQuickFill, deleteQuickFill } = useCashflowData();
@@ -43,15 +45,15 @@ export default function QuickFillFormSheet() {
   };
 
   const confirmDelete = (id: string, quickFillLabel: string) => {
-    Alert.alert("Remove quick fill?", `${quickFillLabel} will no longer appear as an entry shortcut.`, [
-      { text: "Cancel", style: "cancel" },
-      { text: "Remove", style: "destructive", onPress: () => deleteQuickFill(id) },
+    Alert.alert(t('quickFill.removeAlert.title'), t('quickFill.removeAlert.message', { label: quickFillLabel }), [
+      { text: t('common.cancel'), style: "cancel" },
+      { text: t('quickFill.removeAlert.remove'), style: "destructive", onPress: () => deleteQuickFill(id) },
     ]);
   };
 
   return (
     <>
-      <Stack.Screen options={{ title: "Quick Fill" }} />
+      <Stack.Screen options={{ title: t('quickFill.title') }} />
       <Stack.Toolbar placement="left">
         <Stack.Toolbar.Button icon="xmark" onPress={() => router.back()} />
       </Stack.Toolbar>
@@ -63,24 +65,24 @@ export default function QuickFillFormSheet() {
       >
         <View className="gap-2">
           <Text className="text-xs font-semibold uppercase tracking-[2px]" style={{ color: appTheme.colors.muted }}>
-            {activeManagement?.name ?? "Wallet"}
+            {activeManagement?.name ?? t('quickFill.wallet')}
           </Text>
           <Text className="text-3xl font-black tracking-tight" style={{ color: appTheme.colors.foreground }}>
-            Quick Fill
+            {t('quickFill.title')}
           </Text>
           <Text className="text-sm leading-5" style={{ color: appTheme.colors.muted }}>
-            Save frequent spending labels, amounts, and categories for the quick-fill row in entry-form.
+            {t('quickFill.description')}
           </Text>
         </View>
 
         <View className="gap-3 rounded-3xl border p-4" style={{ borderColor, backgroundColor: surface }}>
           <Text className="text-sm font-bold" style={{ color: appTheme.colors.foreground }}>
-            New Quick Fill
+            {t('quickFill.new')}
           </Text>
           <TextInput
             value={label}
             onChangeText={setLabel}
-            placeholder="Shortcut label"
+            placeholder={t('quickFill.shortcutLabel')}
             placeholderTextColor={appTheme.colors.muted}
             selectionColor={appTheme.colors.primary}
             className="rounded-2xl px-4 py-3 text-base"
@@ -89,7 +91,7 @@ export default function QuickFillFormSheet() {
           <TextInput
             value={amountText ? `${currency.option.symbol} ${amountText}` : ""}
             onChangeText={(text) => setAmountText(formatAmountInput(parseAmountInput(text)))}
-            placeholder="Default amount"
+            placeholder={t('quickFill.defaultAmount')}
             placeholderTextColor={appTheme.colors.muted}
             keyboardType="number-pad"
             selectionColor={appTheme.colors.primary}
@@ -105,7 +107,7 @@ export default function QuickFillFormSheet() {
               style={{ backgroundColor: categoryId === null ? alpha(appTheme.colors.primary, 0.14) : appTheme.colors.background, borderColor: categoryId === null ? appTheme.colors.primary : borderColor }}
             >
               <Text className="text-sm font-semibold" style={{ color: categoryId === null ? appTheme.colors.primary : appTheme.colors.foreground }}>
-                No category
+                {t('quickFill.noCategory')}
               </Text>
             </Pressable>
             {categories.map((category) => {
@@ -135,12 +137,12 @@ export default function QuickFillFormSheet() {
             style={{ backgroundColor: label.trim() ? appTheme.colors.primary : alpha(appTheme.colors.primary, 0.28) }}
           >
             <Text className="font-bold" style={{ color: appTheme.colors.inverseForeground }}>
-              Create Quick Fill
+              {t('quickFill.create')}
             </Text>
           </Pressable>
           {selectedCategory ? (
             <Text className="text-xs" style={{ color: appTheme.colors.muted }}>
-              New entries will preload {selectedCategory.name}.
+              {t('quickFill.newEntriesPreload', { category: selectedCategory.name })}
             </Text>
           ) : null}
         </View>
@@ -161,12 +163,12 @@ export default function QuickFillFormSheet() {
                       {quickFill.label}
                     </Text>
                     <Text className="text-xs" style={{ color: appTheme.colors.muted }}>
-                      {[quickFill.amount ? currency.format(quickFill.amount, { compact: true }) : null, category?.name ?? "No category"].filter(Boolean).join(" · ")}
+                      {[quickFill.amount ? currency.format(quickFill.amount, { compact: true }) : null, category?.name ?? t('quickFill.noCategory')].filter(Boolean).join(" · ")}
                     </Text>
                   </View>
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel={`Remove ${quickFill.label}`}
+                    accessibilityLabel={t('quickFill.removeLabel', { label: quickFill.label })}
                     onPress={() => confirmDelete(quickFill.id, quickFill.label)}
                     className="h-10 w-10 items-center justify-center rounded-full"
                     style={{ backgroundColor: alpha(appTheme.colors.negative, appTheme.isDark ? 0.18 : 0.1) }}

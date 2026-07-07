@@ -1,13 +1,15 @@
+import { useTranslation } from "react-i18next";
 import { SidebarFormSheet } from "@/components/sidebar/SidebarFormSheet";
 
 export default function ArchiveForm() {
+  const { t } = useTranslation();
   return (
     <SidebarFormSheet
-      title="Archive"
-      description="View archived notes"
+      title={t("archive.title")}
+      description={t("archive.description")}
       icon="archivebox.fill"
-      fields={["Search", "Sort by", "Date range"]}
-      actions={["Close"]}
+      fields={[t("archive.fieldSearch"), t("archive.fieldSortBy"), t("archive.fieldDateRange")]}
+      actions={[t("common.close")]}
     />
   );
 }

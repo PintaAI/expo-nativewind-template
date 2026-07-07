@@ -90,11 +90,25 @@ export type CreateEntryInput = {
   io: "Income" | "Expenses";
 };
 
+export type CreateTransferInput = {
+  fromManagementId: string;
+  toManagementId: string;
+  nominal: number;
+  originalNominal?: number;
+  originalCurrency?: string;
+  exchangeRateToIdr?: number;
+  exchangeRateAt?: string;
+  date: string;
+  note?: string;
+};
+
 export type CreateCategoryInput = {
   name: string;
   color: string | null;
   icon: string | null;
 };
+
+export type UpdateCategoryInput = CreateCategoryInput;
 
 export type CreateQuickFillInput = {
   label: string;
@@ -138,6 +152,7 @@ export type CashflowDataState = {
   updateManagement: (managementId: string, input: UpdateManagementInput) => Promise<void>;
   listManagementMembers: (managementId: string) => Promise<CashflowManagementMember[]>;
   createCategory: (input: CreateCategoryInput) => Promise<void>;
+  updateCategory: (categoryId: string, input: UpdateCategoryInput) => Promise<void>;
   deleteCategory: (id: string) => Promise<void>;
   updateOverallBudget: (period: BudgetPeriod, nominal: number | null) => Promise<void>;
   updateCategoryBudget: (categoryId: string, period: BudgetPeriod, nominal: number | null) => Promise<void>;
@@ -147,5 +162,6 @@ export type CashflowDataState = {
   deleteRecurringEntry: (id: string) => Promise<void>;
   createEntry: (input: CreateEntryInput) => Promise<void>;
   updateEntry: (id: string, input: CreateEntryInput) => Promise<void>;
+  createTransfer: (input: CreateTransferInput) => Promise<void>;
   refresh: () => Promise<void>;
 };

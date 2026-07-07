@@ -5,6 +5,7 @@ import { SymbolView, type SFSymbol } from "expo-symbols";
 import Svg, { Circle, G } from "react-native-svg";
 import { AppText as RNText } from "@/components/AppText";
 import { useAppTheme } from "@/components/AppTheme";
+import { useTranslation } from "react-i18next";
 import { useCurrency } from "@/components/CurrencyProvider";
 
 import { alpha } from "@/lib/color";
@@ -13,7 +14,7 @@ import type { CashflowAnalytics } from "@/data/cashflow/types";
 
 // ─── Types ───────────────────────────────────────────────
 
-export type DatePeriod = { label: string; from?: string; to?: string; allTime?: boolean };
+export type DatePeriod = { key: string; label: string; from?: string; to?: string; allTime?: boolean };
 
 type Filters = {
   from?: string;
@@ -130,18 +131,19 @@ function FilterChip({ label, active, onPress }: { label: string; active: boolean
 }
 
 export const DATE_PRESETS: DatePeriod[] = [
-  { label: "All time", allTime: true },
-  { label: "Today", from: toDateKey(new Date()), to: toDateKey(new Date()) },
-  { label: "7 days", from: toDateKey(new Date(Date.now() - 6 * 86400000)), to: toDateKey(new Date()) },
-  { label: "This month", from: toDateKey(new Date(new Date().getFullYear(), new Date().getMonth(), 1)), to: toDateKey(new Date()) },
-  { label: "Last month", from: toDateKey(new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1)), to: toDateKey(new Date(new Date().getFullYear(), new Date().getMonth(), 0)) },
-  { label: "3 months", from: toDateKey(new Date(Date.now() - 90 * 86400000)), to: toDateKey(new Date()) },
-  { label: "This year", from: toDateKey(new Date(new Date().getFullYear(), 0, 1)), to: toDateKey(new Date()) },
+  { key: "allTime", label: "All time", allTime: true },
+  { key: "today", label: "Today", from: toDateKey(new Date()), to: toDateKey(new Date()) },
+  { key: "7days", label: "7 days", from: toDateKey(new Date(Date.now() - 6 * 86400000)), to: toDateKey(new Date()) },
+  { key: "thisMonth", label: "This month", from: toDateKey(new Date(new Date().getFullYear(), new Date().getMonth(), 1)), to: toDateKey(new Date()) },
+  { key: "lastMonth", label: "Last month", from: toDateKey(new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1)), to: toDateKey(new Date(new Date().getFullYear(), new Date().getMonth(), 0)) },
+  { key: "3months", label: "3 months", from: toDateKey(new Date(Date.now() - 90 * 86400000)), to: toDateKey(new Date()) },
+  { key: "thisYear", label: "This year", from: toDateKey(new Date(new Date().getFullYear(), 0, 1)), to: toDateKey(new Date()) },
 ];
 
 // ─── Monthly Trend Bar Chart ──────────────────────────────
 
 function BarChart({ data, highlightedMonths, onMonthPress }: { data: MonthlyAnalytics[]; highlightedMonths?: MonthHighlight; onMonthPress?: (month: string) => void }) {
+  const { t } = useTranslation();
   const appTheme = useAppTheme();
   const { format } = useCurrency();
   const scrollViewRef = useRef<ScrollViewType>(null);
@@ -155,10 +157,10 @@ function BarChart({ data, highlightedMonths, onMonthPress }: { data: MonthlyAnal
   return (
     <View className="gap-3">
       <View className="flex-row items-center justify-end gap-4">
-        {[["Income", positive], ["Expenses", negative]].map(([label, color]) => (
-          <View key={label} className="flex-row items-center gap-1.5">
+        {[[t('analytics.income'), positive], [t('analytics.expenses'), negative]].map(([label, color]) => (
+          <View key={label as string} className="flex-row items-center gap-1.5">
             <View className="h-3 w-3 rounded-sm" style={{ backgroundColor: color }} />
-            <RNText className="text-xs" style={{ color: appTheme.colors.muted }}>{label}</RNText>
+            <RNText className="text-xs" style={{ color: appTheme.colors.muted }}>{label as string}</RNText>
           </View>
         ))}
       </View>
@@ -267,6 +269,7 @@ function CategoryDonut({ data }: { data: CategoryAnalytics[] }) {
 }
 
 function CategoryBreakdown({ data }: { data: CategoryAnalytics[] }) {
+  const { t } = useTranslation();
   const appTheme = useAppTheme();
   const { format } = useCurrency();
   const [showDetail, setShowDetail] = useState(false);
@@ -274,9 +277,9 @@ function CategoryBreakdown({ data }: { data: CategoryAnalytics[] }) {
   return (
     <View className="gap-3">
       <View className="flex-row items-center justify-between gap-3">
-        <RNText className="text-sm font-bold" style={{ color: appTheme.colors.foreground }}>Category Breakdown</RNText>
+        <RNText className="text-sm font-bold" style={{ color: appTheme.colors.foreground }}>{t('analytics.categoryBreakdown')}</RNText>
         <Pressable onPress={() => setShowDetail(!showDetail)} className="rounded-full px-2.5 py-1" style={{ backgroundColor: appTheme.isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.05)" }}>
-          <RNText className="text-xs font-medium" style={{ color: appTheme.colors.muted }}>{showDetail ? "Chart" : "Details"}</RNText>
+          <RNText className="text-xs font-medium" style={{ color: appTheme.colors.muted }}>{showDetail ? t('analytics.chart') : t('analytics.details')}</RNText>
         </Pressable>
       </View>
 
@@ -285,10 +288,10 @@ function CategoryBreakdown({ data }: { data: CategoryAnalytics[] }) {
       ) : (
         <View className="overflow-hidden rounded-2xl" style={{ borderColor: appTheme.isDark ? "rgba(255,255,255,0.1)" : "rgba(15,23,42,0.08)", borderWidth: 1 }}>
           <View className="flex-row items-center border-b px-4 py-2.5" style={{ backgroundColor: appTheme.isDark ? "rgba(255,255,255,0.02)" : "rgba(15,23,42,0.02)", borderBottomColor: appTheme.isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.05)" }}>
-            <RNText className="flex-1 text-xs font-semibold" style={{ color: appTheme.colors.muted }}>Category</RNText>
-            <RNText className="w-[90px] text-right text-xs font-semibold" style={{ color: appTheme.colors.muted }}>Total</RNText>
-            <RNText className="w-[55px] text-right text-xs font-semibold" style={{ color: appTheme.colors.muted }}>Count</RNText>
-            <RNText className="w-[50px] text-right text-xs font-semibold" style={{ color: appTheme.colors.muted }}>%</RNText>
+            <RNText className="flex-1 text-xs font-semibold" style={{ color: appTheme.colors.muted }}>{t('analytics.categoryLabel')}</RNText>
+            <RNText className="w-[90px] text-right text-xs font-semibold" style={{ color: appTheme.colors.muted }}>{t('analytics.total')}</RNText>
+            <RNText className="w-[55px] text-right text-xs font-semibold" style={{ color: appTheme.colors.muted }}>{t('analytics.count')}</RNText>
+            <RNText className="w-[50px] text-right text-xs font-semibold" style={{ color: appTheme.colors.muted }}>{t('analytics.percent')}</RNText>
           </View>
           {data.map((cat, i) => (
             <View key={cat.category} className="flex-row items-center border-b px-4 py-2.5" style={{ borderBottomColor: appTheme.isDark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.03)", backgroundColor: i === 0 ? alpha(cat.color ?? appTheme.colors.primary, 0.06) : "transparent" }}>
@@ -310,6 +313,7 @@ function CategoryBreakdown({ data }: { data: CategoryAnalytics[] }) {
 // ─── Creator Breakdown ────────────────────────────────────
 
 function CreatorBreakdown({ data }: { data: CreatorAnalytics[] }) {
+  const { t } = useTranslation();
   const appTheme = useAppTheme();
   const { format } = useCurrency();
   const positive = appTheme.colors.positive;
@@ -319,7 +323,7 @@ function CreatorBreakdown({ data }: { data: CreatorAnalytics[] }) {
   return (
     <View className="gap-3">
       {data.map((creator) => {
-        const label = creator.name ?? "Unknown";
+        const label = creator.name ?? t('analytics.unknown');
         const initials = label.split(" ").map((p) => p[0]).join("").slice(0, 2).toUpperCase();
 
         return (
@@ -330,7 +334,7 @@ function CreatorBreakdown({ data }: { data: CreatorAnalytics[] }) {
               </View>
               <View className="min-w-0 flex-1">
                 <RNText numberOfLines={1} className="text-sm font-medium" style={{ color: appTheme.colors.foreground }}>{label}</RNText>
-                <RNText className="text-xs" style={{ color: appTheme.colors.muted }}>{creator.entryCount} entries</RNText>
+                <RNText className="text-xs" style={{ color: appTheme.colors.muted }}>{t('analytics.entries', { count: creator.entryCount })}</RNText>
               </View>
               <View className="items-end shrink-0">
                 {creator.totalIncome > 0 ? (
@@ -354,6 +358,7 @@ function CreatorBreakdown({ data }: { data: CreatorAnalytics[] }) {
 // ─── Main Component ───────────────────────────────────────
 
 export function AnalyticsCharts({ header, hideStats = false, data: providedData, monthlyTrendData, datePeriod: controlledDatePeriod, onDatePeriodChange, selectedMonth: controlledSelectedMonth, onSelectedMonthChange }: AnalyticsChartsProps) {
+  const { t, i18n } = useTranslation();
   const appTheme = useAppTheme();
   const { format } = useCurrency();
   const positive = appTheme.colors.positive;
@@ -384,8 +389,9 @@ export function AnalyticsCharts({ header, hideStats = false, data: providedData,
 
     const from = toDateKey(nextMonth);
     const to = toDateKey(new Date(nextMonth.getFullYear(), nextMonth.getMonth() + 1, 0));
-    const label = nextMonth.toLocaleDateString("id-ID", { month: "long", year: "numeric" });
-    const nextPeriod = { label, from, to };
+    const locale = i18n.language === "id" ? "id-ID" : "en-US";
+    const label = nextMonth.toLocaleDateString(locale, { month: "long", year: "numeric" });
+    const nextPeriod = { key: `month-${from}`, label, from, to };
     if (onDatePeriodChange) onDatePeriodChange(nextPeriod);
     else setInternalDatePeriod(nextPeriod);
   }
@@ -400,11 +406,11 @@ export function AnalyticsCharts({ header, hideStats = false, data: providedData,
     [datePeriod, providedData],
   );
 
-  const monthLabel = selectedMonth.toLocaleDateString("id-ID", { month: "long", year: "numeric" });
+  const monthLabel = selectedMonth.toLocaleDateString(i18n.language === "id" ? "id-ID" : "en-US", { month: "long", year: "numeric" });
   const selectedMonthKey = monthKeyFromDate(selectedMonth);
   const highlightedMonths = useMemo<MonthHighlight>(() => {
-    if (datePeriod.allTime || datePeriod.label === "This year") return "all";
-    if (datePeriod.label === "3 months") return recentMonthKeys(selectedMonth, 3);
+    if (datePeriod.allTime || datePeriod.key === "thisYear") return "all";
+    if (datePeriod.key === "3months") return recentMonthKeys(selectedMonth, 3);
     return [selectedMonthKey];
   }, [datePeriod, selectedMonth, selectedMonthKey]);
 
@@ -424,7 +430,7 @@ export function AnalyticsCharts({ header, hideStats = false, data: providedData,
         <View className="mb-1">
           <View className="flex-row items-center justify-between gap-3">
             <View className="flex-row items-center gap-3">
-              <RNText className="text-xs font-semibold uppercase tracking-[2px]" style={{ color: appTheme.colors.muted }}>Balance</RNText>
+              <RNText className="text-xs font-semibold uppercase tracking-[2px]" style={{ color: appTheme.colors.muted }}>{t('analytics.balance')}</RNText>
               <Pressable onPress={() => setShowBalance(!showBalance)} className="h-8 w-8 items-center justify-center rounded-full" style={{ backgroundColor: mutedSurface }}>
                 <ChartSymbol name={showBalance ? "eye.fill" : "eye.slash.fill"} color={appTheme.colors.muted} />
               </Pressable>
@@ -440,7 +446,7 @@ export function AnalyticsCharts({ header, hideStats = false, data: providedData,
           <RNText className="mt-1 text-4xl font-black tracking-tight" style={{ color: data.summary.balance < 0 ? negative : appTheme.colors.foreground }}>
             {showBalance ? format(data.summary.balance, { compact: true }) : "••••••"}
           </RNText>
-          <RNText className="mt-0.5 text-xs" style={{ color: appTheme.colors.muted }}>{data.summary.entryCount} entries</RNText>
+          <RNText className="mt-0.5 text-xs" style={{ color: appTheme.colors.muted }}>{t('analytics.entries', { count: data.summary.entryCount })}</RNText>
         </View>
       )}
 
@@ -454,14 +460,14 @@ export function AnalyticsCharts({ header, hideStats = false, data: providedData,
       {/* Filter Presets */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerClassName="gap-2">
         {DATE_PRESETS.map((preset) => {
-          const isActive = preset.label === datePeriod.label || (preset.allTime && datePeriod.allTime) || (preset.from === datePeriod.from && preset.to === datePeriod.to);
-          return <FilterChip key={preset.label} label={preset.label} active={isActive} onPress={() => setDatePeriod(preset)} />;
+          const isActive = preset.key === datePeriod.key || (preset.allTime && datePeriod.allTime) || (preset.from === datePeriod.from && preset.to === datePeriod.to);
+          return <FilterChip key={preset.key} label={t(`analytics.${preset.key}` as const)} active={isActive} onPress={() => setDatePeriod(preset)} />;
         })}
       </ScrollView>
 
       {/* Monthly Trend */}
       <View className="overflow-hidden rounded-2xl p-4" style={{ borderColor, borderWidth: 1 }}>
-        <RNText className="mb-3 text-sm font-bold" style={{ color: appTheme.colors.foreground }}>Monthly Trend</RNText>
+        <RNText className="mb-3 text-sm font-bold" style={{ color: appTheme.colors.foreground }}>{t('analytics.monthlyTrend')}</RNText>
         <BarChart data={monthlyTrendData ?? data.byMonth} highlightedMonths={highlightedMonths} onMonthPress={setSelectedMonthKey} />
       </View>
 
@@ -472,7 +478,7 @@ export function AnalyticsCharts({ header, hideStats = false, data: providedData,
 
       {/* Creator Breakdown */}
       <View className="overflow-hidden rounded-2xl p-4" style={{ borderColor, borderWidth: 1 }}>
-        <RNText className="mb-3 text-sm font-bold" style={{ color: appTheme.colors.foreground }}>By Member</RNText>
+        <RNText className="mb-3 text-sm font-bold" style={{ color: appTheme.colors.foreground }}>{t('analytics.byMember')}</RNText>
         <CreatorBreakdown data={data.byCreator} />
       </View>
     </ScrollView>

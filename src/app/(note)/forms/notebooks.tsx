@@ -1,12 +1,14 @@
+import { useTranslation } from "react-i18next";
 import { SidebarFormSheet } from "@/components/sidebar/SidebarFormSheet";
 
 export default function NotebooksForm() {
+  const { t } = useTranslation();
   return (
     <SidebarFormSheet
-      title="Notebooks"
-      description="Manage your note notebooks"
+      title={t("notebooks.title")}
+      description={t("notebooks.description")}
       icon="book.fill"
-      fields={["Notebook name", "Description", "Color"]}
+      fields={[t("notebooks.fieldName"), t("notebooks.fieldDescription"), t("notebooks.fieldColor")]}
     />
   );
 }

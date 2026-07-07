@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Pressable, View } from "react-native";
 import { SymbolView, type SFSymbol } from "expo-symbols";
 import { router } from "expo-router";
+import { useTranslation } from "react-i18next";
 
 import { AppText as RNText } from "@/components/AppText";
 import { useAppTheme } from "@/components/AppTheme";
@@ -64,6 +65,7 @@ function StatSymbol({ name, color }: { name: SFSymbol; color: string }) {
 }
 
 export function CashflowStatsCard({ stats, hideMoreButton = false, managementName }: { stats: CashflowStats; hideMoreButton?: boolean; managementName?: string }) {
+  const { t } = useTranslation();
   const appTheme = useAppTheme();
   const { format } = useCurrency();
   const [showBalance, setShowBalance] = useState(true);
@@ -81,7 +83,7 @@ export function CashflowStatsCard({ stats, hideMoreButton = false, managementNam
           <Pressable
             onPress={() => router.push("/forms/wallet")}
             accessibilityRole="button"
-            accessibilityLabel="Switch wallet"
+            accessibilityLabel={t('analytics.switchWallet')}
             className="max-w-[170px] flex-row items-center gap-1.5 rounded-full px-2.5 py-1.5"
             style={{ backgroundColor: detailBackground }}
           >
@@ -90,14 +92,14 @@ export function CashflowStatsCard({ stats, hideMoreButton = false, managementNam
               className="shrink text-xs font-semibold uppercase tracking-[2px]"
               style={{ color: appTheme.colors.muted }}
             >
-              {managementName ?? "Balance"}
+              {managementName ?? t('analytics.balance')}
             </RNText>
             <StatSymbol name="chevron.down" color={appTheme.colors.muted} />
           </Pressable>
           <Pressable
             onPress={() => setShowBalance(!showBalance)}
             accessibilityRole="button"
-            accessibilityLabel={showBalance ? "Hide balance" : "Show balance"}
+            accessibilityLabel={showBalance ? t('analytics.hideBalance') : t('analytics.showBalance')}
             className="h-8 w-8 items-center justify-center rounded-full"
             style={{ backgroundColor: detailBackground }}
           >
@@ -135,7 +137,7 @@ export function CashflowStatsCard({ stats, hideMoreButton = false, managementNam
           <Pressable
             onPress={() => setIsExpanded(!isExpanded)}
             accessibilityRole="button"
-            accessibilityLabel={isExpanded ? "Hide more stats" : "Show more stats"}
+            accessibilityLabel={isExpanded ? t('analytics.hideBalance') : t('analytics.showBalance')}
             className="flex-row items-center gap-1.5 rounded-full px-2.5 py-1.5"
             style={{
               backgroundColor: isExpanded ? alpha(appTheme.colors.primary, 0.1) : "transparent",
@@ -145,7 +147,7 @@ export function CashflowStatsCard({ stats, hideMoreButton = false, managementNam
               className="text-xs font-semibold"
               style={{ color: isExpanded ? appTheme.colors.primary : appTheme.colors.foreground }}
             >
-              {isExpanded ? "Hide" : "More"}
+              {isExpanded ? t('analytics.hide') : t('analytics.more')}
             </RNText>
             <StatSymbol
               name={isExpanded ? "chevron.up" : "chevron.down"}
@@ -176,7 +178,7 @@ export function CashflowStatsCard({ stats, hideMoreButton = false, managementNam
               </RNText>
               <View className="h-3 w-px" style={{ backgroundColor: mutedLine }} />
               <RNText className="text-xs" style={{ color: appTheme.colors.muted }}>
-                Net
+                {t('analytics.net')}
               </RNText>
               <RNText className="text-sm font-black" style={{ color: appTheme.colors.foreground }}>
                 {showBalance
@@ -192,11 +194,11 @@ export function CashflowStatsCard({ stats, hideMoreButton = false, managementNam
             <View className="flex-row items-center gap-2">
               <StatSymbol name="calendar.badge.plus" color={appTheme.colors.muted} />
               <RNText className="text-sm font-bold" style={{ color: appTheme.colors.foreground }}>
-                Current Week
+                {t('analytics.currentWeek')}
               </RNText>
             </View>
             <RNText className="text-xs" style={{ color: appTheme.colors.muted }}>
-              Week {stats.currentWeek.weekNumber} • {stats.currentWeek.range}
+              {t('analytics.week', { number: stats.currentWeek.weekNumber, range: stats.currentWeek.range })}
             </RNText>
             <View className="flex-row items-center gap-2">
               <StatSymbol name="arrow.down.circle.fill" color={positive} />
@@ -210,7 +212,7 @@ export function CashflowStatsCard({ stats, hideMoreButton = false, managementNam
               </RNText>
               <View className="h-3 w-px" style={{ backgroundColor: mutedLine }} />
               <RNText className="text-xs" style={{ color: appTheme.colors.muted }}>
-                Net
+                {t('analytics.net')}
               </RNText>
               <RNText className="text-sm font-black" style={{ color: appTheme.colors.foreground }}>
                 {showBalance
@@ -224,7 +226,7 @@ export function CashflowStatsCard({ stats, hideMoreButton = false, managementNam
             <View className="flex-row items-center gap-2">
               <StatSymbol name="bag.fill" color={appTheme.colors.muted} />
               <RNText className="text-sm font-bold" style={{ color: appTheme.colors.foreground }}>
-                Top Expenses
+                {t('analytics.topExpenses')}
               </RNText>
             </View>
             {stats.topExpenseCategories.map((category, index) => (
