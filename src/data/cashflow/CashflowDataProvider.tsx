@@ -14,6 +14,7 @@ import {
   updateCategoryBudget as persistCategoryBudget,
   updateCategory as updateCategoryInRepo,
   createEntry as insertEntry,
+  deleteEntry as softDeleteEntry,
   createTransfer as insertTransfer,
   createManagement as insertManagement,
   emptyCashflowStats,
@@ -200,6 +201,16 @@ export function CashflowDataProvider({ children }: { children: ReactNode }) {
     updateEntry: async (id: string, input: CreateEntryInput) => {
       if (!activeManagementId) return;
       await updateEntryInRepo(db, activeManagementId, id, input);
+      await refresh();
+    },
+    deleteEntry: async (id: string) => {
+      if (!activeManagementId) return;
+      await softDeleteEntry(db, activeManagementId, id);
+      await refresh();
+    },
+    deleteEntries: async (ids: string[]) => {
+      if (!activeManagementId) return;
+      for (const id of ids) await softDeleteEntry(db, activeManagementId, id);
       await refresh();
     },
     createTransfer: async (input) => {

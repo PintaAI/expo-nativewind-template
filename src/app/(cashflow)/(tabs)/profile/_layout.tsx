@@ -5,10 +5,6 @@ export default function ProfileLayout() {
     <Stack
       screenOptions={{
         headerTransparent: true,
-        headerBlurEffect: "systemMaterial",
-        headerStyle: { backgroundColor: "transparent" },
-        headerShadowVisible: false,
-        headerLargeTitleShadowVisible: false,
       }}
     />
   );

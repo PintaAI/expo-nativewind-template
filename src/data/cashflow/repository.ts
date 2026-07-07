@@ -665,6 +665,22 @@ export async function updateEntry(db: SQLiteDatabase, managementId: string, entr
   );
 }
 
+export async function deleteEntry(db: SQLiteDatabase, managementId: string, entryId: string) {
+  const updatedAt = nowIso();
+
+  await db.runAsync(
+    `UPDATE entries SET
+       deleted_at = ?,
+       updated_at = ?,
+       sync_status = 'deleted'
+     WHERE id = ? AND management_id = ? AND deleted_at IS NULL`,
+    updatedAt,
+    updatedAt,
+    entryId,
+    managementId,
+  );
+}
+
 async function insertEntry(db: EntryWriter, managementId: string, input: CreateEntryInput, createdAt = nowIso()) {
   const user = await db.getFirstAsync<{ id: string }>("SELECT id FROM users WHERE deleted_at IS NULL ORDER BY created_at LIMIT 1");
   await db.runAsync(

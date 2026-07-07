@@ -10,6 +10,8 @@ import { useCurrency } from "@/components/CurrencyProvider";
 import { alpha } from "@/lib/color";
 import { formatEntryAmount } from "@/lib/currency";
 import { addDaysToDateKey, formatDateKey, parseDateKey } from "@/lib/date";
+import { useCashflowData } from "@/data/cashflow/CashflowDataProvider";
+import { useSyncStatus } from "@/components/SyncProvider";
 
 export type IOType = "Income" | "Expenses";
 
@@ -170,6 +172,8 @@ export function CashflowTable({ entries, dateFilter, onDateFilterChange, hideTan
   const { t } = useTranslation();
   const appTheme = useAppTheme();
   const { currency, format } = useCurrency();
+  const { deleteEntries } = useCashflowData();
+  const sync = useSyncStatus();
   const [globalFilter, setGlobalFilter] = useState("");
   const [ioFilter, setIoFilter] = useState<FilterValue>("all");
   const [categoryFilter, setCategoryFilter] = useState<FilterValue>("all");
@@ -178,7 +182,7 @@ export function CashflowTable({ entries, dateFilter, onDateFilterChange, hideTan
   const [sortField, setSortField] = useState<SortField>("date");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({});
-  const [deletedIds, setDeletedIds] = useState<Record<string, boolean>>({});
+  const [isDeleting, setIsDeleting] = useState(false);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const positive = appTheme.colors.positive;
   const negative = appTheme.colors.negative;
@@ -188,7 +192,6 @@ export function CashflowTable({ entries, dateFilter, onDateFilterChange, hideTan
   const categoryOptions = Array.from(new Set(entries.map((entry) => entry.category).filter((category): category is string => !!category)));
   const creatorOptions = Array.from(new Set(entries.map((entry) => entry.createdBy ?? "Unknown")));
   const filteredEntries = entries
-    .filter((entry) => !deletedIds[entry.id])
     .filter((entry) => !dateFilter || entry.date === dateFilter)
     .filter((entry) => !search || entry.name.toLowerCase().includes(search))
     .filter((entry) => ioFilter === "all" || entry.io === ioFilter)
@@ -236,18 +239,21 @@ export function CashflowTable({ entries, dateFilter, onDateFilterChange, hideTan
     setRowSelection((current) => ({ ...current, [id]: !current[id] }));
   }
 
-  function handleBulkDelete() {
+  async function handleBulkDelete() {
+    if (isDeleting) return;
     const selectedIds = Object.keys(rowSelection).filter((id) => rowSelection[id]);
     if (selectedIds.length === 0) return;
 
-    setDeletedIds((current) => {
-      const next = { ...current };
-      selectedIds.forEach((id) => {
-        next[id] = true;
-      });
-      return next;
-    });
-    setRowSelection({});
+    setIsDeleting(true);
+    try {
+      await deleteEntries(selectedIds);
+      await sync.syncNow();
+      setRowSelection({});
+    } catch (error) {
+      console.warn("Failed to delete cashflow entries", error);
+    } finally {
+      setIsDeleting(false);
+    }
   }
 
   function clearSelection() {
@@ -263,7 +269,7 @@ export function CashflowTable({ entries, dateFilter, onDateFilterChange, hideTan
             <RNText className="flex-1 text-sm font-semibold" style={{ color: appTheme.colors.inverseForeground }}>
               {t('cashflow.selected', { count: selectedCount })}
             </RNText>
-            <Pressable onPress={handleBulkDelete} className="h-9 flex-row items-center gap-1.5 rounded-full px-3" style={{ backgroundColor: alpha(negative, 0.95) }}>
+            <Pressable onPress={handleBulkDelete} disabled={isDeleting} className="h-9 flex-row items-center gap-1.5 rounded-full px-3" style={{ backgroundColor: alpha(negative, isDeleting ? 0.55 : 0.95) }}>
               <TableSymbol name="trash.fill" color="#ffffff" size={12} />
               <RNText className="text-xs font-bold text-white">{t('cashflow.delete')}</RNText>
             </Pressable>

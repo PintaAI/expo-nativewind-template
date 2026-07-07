@@ -58,10 +58,7 @@ export default function Auth() {
           title: "",
           contentStyle: { backgroundColor: appTheme.colors.background },
           headerTransparent: true,
-          headerBlurEffect: "systemMaterial",
           headerStyle: { backgroundColor: "transparent" },
-          headerShadowVisible: false,
-          headerLargeTitleShadowVisible: false,
         }}
       />
       <Stack.Toolbar placement="right">

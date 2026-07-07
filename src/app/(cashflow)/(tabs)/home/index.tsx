@@ -69,7 +69,12 @@ export default function HomeScreen() {
         <CashflowStatsCard stats={stats} managementName={activeManagement?.name} />
         <ActivityHeatmap activity={activity} selectedDate={effectiveSelectedDate} onDateSelect={setSelectedDate} />
         <View className="mt-5">
-          <CashflowTable entries={dayEntries} dateFilter={effectiveSelectedDate} onDateFilterChange={setSelectedDate} hideTanggal />
+          <CashflowTable
+            entries={dayEntries}
+            dateFilter={effectiveSelectedDate}
+            onDateFilterChange={setSelectedDate}
+            hideTanggal
+          />
         </View>
       </ScrollView>
     </>

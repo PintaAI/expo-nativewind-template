@@ -162,6 +162,8 @@ export type CashflowDataState = {
   deleteRecurringEntry: (id: string) => Promise<void>;
   createEntry: (input: CreateEntryInput) => Promise<void>;
   updateEntry: (id: string, input: CreateEntryInput) => Promise<void>;
+  deleteEntry: (id: string) => Promise<void>;
+  deleteEntries: (ids: string[]) => Promise<void>;
   createTransfer: (input: CreateTransferInput) => Promise<void>;
   refresh: () => Promise<void>;
 };

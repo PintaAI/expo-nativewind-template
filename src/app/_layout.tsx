@@ -65,10 +65,7 @@ function RootNavigator() {
                         sheetExpandsWhenScrolledToEdge: false,
                         headerLargeTitle: false,
                         headerTransparent: true,
-                        headerBlurEffect: "systemMaterial",
                         headerStyle: { backgroundColor: "transparent" },
-                        headerShadowVisible: false,
-                        headerLargeTitleShadowVisible: false,
                         sheetGrabberVisible: true,
                       }}
                     />
@@ -78,10 +75,6 @@ function RootNavigator() {
                         presentation: "modal",
                         headerLargeTitle: false,
                         headerTransparent: true,
-                        headerBlurEffect: "systemMaterial",
-                        headerStyle: { backgroundColor: "transparent" },
-                        headerShadowVisible: false,
-                        headerLargeTitleShadowVisible: false,
                       }}
                     />
                   </Stack>
