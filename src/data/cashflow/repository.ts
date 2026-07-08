@@ -46,6 +46,7 @@ type EntryRow = {
   exchange_rate_at: string | null;
   category: string | null;
   category_color: string | null;
+  category_icon: string | null;
   created_by: string | null;
   date: string;
   io: "Income" | "Expenses";
@@ -155,6 +156,8 @@ function mapEntry(row: EntryRow): CashflowEntry {
     exchangeRateToIdr: row.exchange_rate_to_idr,
     exchangeRateAt: row.exchange_rate_at,
     category: row.category,
+    categoryColor: row.category_color,
+    categoryIcon: row.category_icon,
     createdBy: row.created_by,
     date: row.date,
     io: row.io,
@@ -433,7 +436,7 @@ export async function deleteRecurringEntry(db: SQLiteDatabase, managementId: str
 
 export async function listEntries(db: SQLiteDatabase, managementId: string): Promise<CashflowEntry[]> {
   const rows = await db.getAllAsync<EntryRow>(
-    `SELECT e.id, e.name, e.nominal, e.original_nominal, e.original_currency, e.exchange_rate_to_idr, e.exchange_rate_at, c.name AS category, c.color AS category_color, u.name AS created_by, e.date, e.io
+    `SELECT e.id, e.name, e.nominal, e.original_nominal, e.original_currency, e.exchange_rate_to_idr, e.exchange_rate_at, c.name AS category, c.color AS category_color, c.icon AS category_icon, u.name AS created_by, e.date, e.io
      FROM entries e
      LEFT JOIN categories c ON c.id = e.category_id AND c.deleted_at IS NULL
      LEFT JOIN users u ON u.id = e.created_by_id AND u.deleted_at IS NULL

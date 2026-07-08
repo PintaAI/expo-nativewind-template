@@ -35,7 +35,8 @@ export default function CashflowLayout() {
         }}
       >
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="forms/wallet" options={nestedFormSheetOptions} />
+        <Stack.Screen name="forms/wallet" options={formSheetOptions} />
+        <Stack.Screen name="forms/wallet/detail" options={formSheetOptions} />
         <Stack.Screen name="forms/categories" options={nestedFormSheetOptions} />
         {cashflowFormScreens.map((screen) => (
           <Stack.Screen key={screen} name={`forms/${screen}`} options={formSheetOptions} />

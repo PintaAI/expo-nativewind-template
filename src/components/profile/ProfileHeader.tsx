@@ -1,23 +1,18 @@
 import { ActivityIndicator, Pressable, View } from "react-native";
 import { Image, type ImageSource } from "expo-image";
 import { SymbolView } from "expo-symbols";
-import { useTranslation } from "react-i18next";
 import { AppText as RNText } from "@/components/AppText";
 import { useAppTheme } from "@/components/AppTheme";
 
 type ProfileHeaderProps = {
-  avatarUrl: string | null;
   avatarSource: ImageSource | null;
-  email: string;
   initials: string;
   isUpdatingPhoto?: boolean;
-  name: string;
   onUpdatePhoto: () => void;
 };
 
-export function ProfileHeader({ avatarSource, email, initials, isUpdatingPhoto = false, name, onUpdatePhoto }: ProfileHeaderProps) {
+export function ProfileHeader({ avatarSource, initials, isUpdatingPhoto = false, onUpdatePhoto }: ProfileHeaderProps) {
   const appTheme = useAppTheme();
-  const { t } = useTranslation();
 
   return (
     <View className="items-center justify-center pt-2">
@@ -66,13 +61,7 @@ export function ProfileHeader({ avatarSource, email, initials, isUpdatingPhoto =
         ) : null}
       </Pressable>
 
-      <RNText
-        className="mt-3"
-        style={{ color: appTheme.colors.foreground, fontSize: appTheme.textSize + 5, fontWeight: "700", letterSpacing: appTheme.textSpacing }}
-      >
-        {name}
-      </RNText>
-      <RNText style={appTheme.text.caption}>{email || t("sidebar.notSignedIn")}</RNText>
+
     </View>
   );
 }

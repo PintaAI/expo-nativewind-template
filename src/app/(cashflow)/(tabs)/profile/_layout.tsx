@@ -6,6 +6,30 @@ export default function ProfileLayout() {
       screenOptions={{
         headerTransparent: true,
       }}
-    />
+    >
+      <Stack.Screen name="index" />
+      <Stack.Screen
+        name="account"
+        options={{
+          presentation: "formSheet",
+          headerLargeTitle: false,
+          headerTransparent: true,
+          sheetAllowedDetents: "fitToContents",
+          sheetExpandsWhenScrolledToEdge: false,
+          sheetGrabberVisible: true,
+        }}
+      />
+      <Stack.Screen
+        name="font-settings"
+        options={{
+          presentation: "formSheet",
+          headerLargeTitle: false,
+          headerTransparent: true,
+          sheetAllowedDetents: "fitToContents",
+          sheetExpandsWhenScrolledToEdge: false,
+          sheetGrabberVisible: true,
+        }}
+      />
+    </Stack>
   );
 }

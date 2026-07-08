@@ -24,6 +24,8 @@ export type CashflowEntry = {
   exchangeRateToIdr: number | null;
   exchangeRateAt: string | null;
   category: string | null;
+  categoryColor: string | null;
+  categoryIcon: string | null;
   createdBy: string | null;
   date: string;
   io: IOType;
@@ -102,30 +104,34 @@ function SortChip({ label, field, sortField, sortDirection, onSort }: { label: s
   return <FilterChip label={`${label}${active ? (sortDirection === "asc" ? " ↑" : " ↓") : ""}`} active={active} onPress={() => onSort(field)} />;
 }
 
-function CategoryBadge({ category }: { category: string | null }) {
+function CategoryBadge({ category, categoryColor, categoryIcon }: { category: string | null; categoryColor: string | null; categoryIcon: string | null }) {
   const appTheme = useAppTheme();
 
   if (!category) {
     return <RNText className="text-xs" style={{ color: appTheme.colors.muted }}>-</RNText>;
   }
 
-  const config = CATEGORY_COLORS[category] ?? { background: alpha(appTheme.colors.primary, 0.12), text: appTheme.colors.primary, symbol: "tag.fill" as SFSymbol };
+  const config = CATEGORY_COLORS[category];
+  const color = categoryColor || config?.text || appTheme.colors.primary;
+  const bg = categoryColor ? alpha(categoryColor, 0.12) : (config?.background || alpha(appTheme.colors.primary, 0.12));
+  const symbol = (categoryIcon || config?.symbol || "tag.fill") as SFSymbol;
 
   return (
-    <View className="self-start flex-row items-center gap-1 rounded-full px-2 py-1" style={{ backgroundColor: config.background }}>
-      <TableSymbol name={config.symbol} color={config.text} size={12} />
-      <RNText numberOfLines={1} className="text-xs font-medium" style={{ color: config.text }}>
+    <View className="self-start flex-row items-center gap-1 rounded-full px-2 py-1" style={{ backgroundColor: bg }}>
+      <TableSymbol name={symbol} color={color} size={12} />
+      <RNText numberOfLines={1} className="text-xs font-medium" style={{ color }}>
         {category}
       </RNText>
     </View>
   );
 }
 
-function TransactionGlyph({ io, category, selected }: { io: IOType; category: string | null; selected: boolean }) {
+function TransactionGlyph({ io, category, categoryColor, categoryIcon, selected }: { io: IOType; category: string | null; categoryColor: string | null; categoryIcon: string | null; selected: boolean }) {
   const appTheme = useAppTheme();
   const isIncome = io === "Income";
-  const color = selected ? appTheme.colors.inverseForeground : appTheme.colors.muted;
-  const symbol = selected ? "checkmark" : CATEGORY_COLORS[category ?? ""]?.symbol ?? (isIncome ? "arrow.down.left" : "arrow.up.right");
+  const fallbackSymbol = CATEGORY_COLORS[category ?? ""]?.symbol ?? "tag.fill";
+  const color = selected ? appTheme.colors.inverseForeground : (categoryColor || appTheme.colors.muted);
+  const symbol = selected ? "checkmark" : (categoryIcon || fallbackSymbol);
   const backgroundColor = selected ? appTheme.colors.primary : appTheme.isDark ? "rgba(255,255,255,0.065)" : "rgba(15,23,42,0.055)";
 
   return (
@@ -386,12 +392,12 @@ export function CashflowTable({ entries, dateFilter, onDateFilterChange, hideTan
                     borderWidth: 1,
                   }}
                 >
-                  <TransactionGlyph io={entry.io} category={entry.category} selected={selected} />
+                  <TransactionGlyph io={entry.io} category={entry.category} categoryColor={entry.categoryColor} categoryIcon={entry.categoryIcon} selected={selected} />
                   <View className="min-w-0 flex-1 gap-1.5">
                     <RNText numberOfLines={1} className="text-base font-semibold" style={{ color: appTheme.colors.foreground }}>{entry.name}</RNText>
                     <View className="flex-row items-center gap-2 overflow-hidden">
                       {!hideTanggal ? <RNText className="text-xs" style={{ color: appTheme.colors.muted }}>{formatDateKey(entry.date)}</RNText> : null}
-                      <CategoryBadge category={entry.category} />
+                      <CategoryBadge category={entry.category} categoryColor={entry.categoryColor} categoryIcon={entry.categoryIcon} />
                     </View>
                   </View>
                   <View className="items-end gap-1.5">

@@ -27,8 +27,9 @@ export default function QuickFillFormSheet() {
   const [label, setLabel] = useState("");
   const [amountText, setAmountText] = useState("");
   const [categoryId, setCategoryId] = useState<string | null>(null);
-  const borderColor = appTheme.isDark ? "rgba(255,255,255,0.12)" : "rgba(15,23,42,0.1)";
-  const surface = appTheme.isDark ? "rgba(255,255,255,0.055)" : "rgba(15,23,42,0.035)";
+  const borderColor = alpha(appTheme.colors.foreground, appTheme.isDark ? 0.09 : 0.07);
+  const surface = alpha(appTheme.colors.foreground, appTheme.isDark ? 0.035 : 0.025);
+  const rowSurface = alpha(appTheme.colors.foreground, appTheme.isDark ? 0.045 : 0.035);
   const selectedCategory = categories.find((category) => category.id === categoryId) ?? null;
 
   const handleCreate = async () => {
@@ -86,7 +87,7 @@ export default function QuickFillFormSheet() {
             placeholderTextColor={appTheme.colors.muted}
             selectionColor={appTheme.colors.primary}
             className="rounded-2xl px-4 py-3 text-base"
-            style={{ color: appTheme.colors.foreground, backgroundColor: appTheme.colors.background, borderColor, borderWidth: 1 }}
+            style={{ color: appTheme.colors.foreground, backgroundColor: rowSurface, borderColor, borderWidth: 1 }}
           />
           <TextInput
             value={amountText ? `${currency.option.symbol} ${amountText}` : ""}
@@ -96,7 +97,7 @@ export default function QuickFillFormSheet() {
             keyboardType="number-pad"
             selectionColor={appTheme.colors.primary}
             className="rounded-2xl px-4 py-3 text-base"
-            style={{ color: appTheme.colors.foreground, backgroundColor: appTheme.colors.background, borderColor, borderWidth: 1 }}
+            style={{ color: appTheme.colors.foreground, backgroundColor: rowSurface, borderColor, borderWidth: 1 }}
           />
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
             <Pressable
@@ -104,7 +105,7 @@ export default function QuickFillFormSheet() {
               accessibilityState={{ selected: categoryId === null }}
               onPress={() => setCategoryId(null)}
               className="min-h-10 flex-row items-center rounded-full border px-3"
-              style={{ backgroundColor: categoryId === null ? alpha(appTheme.colors.primary, 0.14) : appTheme.colors.background, borderColor: categoryId === null ? appTheme.colors.primary : borderColor }}
+              style={{ backgroundColor: categoryId === null ? alpha(appTheme.colors.primary, 0.14) : "transparent", borderColor: categoryId === null ? appTheme.colors.primary : borderColor }}
             >
               <Text className="text-sm font-semibold" style={{ color: categoryId === null ? appTheme.colors.primary : appTheme.colors.foreground }}>
                 {t('quickFill.noCategory')}
@@ -120,7 +121,7 @@ export default function QuickFillFormSheet() {
                   accessibilityState={{ selected }}
                   onPress={() => setCategoryId(category.id)}
                   className="min-h-10 flex-row items-center gap-1.5 rounded-full border px-3"
-                  style={{ backgroundColor: selected ? alpha(color, 0.18) : appTheme.colors.background, borderColor: selected ? color : borderColor }}
+                  style={{ backgroundColor: selected ? alpha(color, 0.18) : "transparent", borderColor: selected ? color : borderColor }}
                 >
                   <SymbolView name={(category.icon ?? "tag.fill") as SFSymbol} size={14} tintColor={color} fallback={<Text style={{ color }}>•</Text>} />
                   <Text className="text-sm font-semibold" style={{ color: selected ? color : appTheme.colors.foreground }}>

@@ -222,7 +222,7 @@ export default function EntryForm() {
   const addCategoryIndex = categoryOptions.length;
   const categorySnapOffsets = [...categoryOptions.map((_, index) => index * CATEGORY_CHIP_SNAP), addCategoryIndex * CATEGORY_CHIP_SNAP];
   const [ioIndex, setIoIndex] = useState(1);
-  const [dateIndex, setDateIndex] = useState(0);
+  const [dateIndex, setDateIndex] = useState(1);
   const [categoryIndex, setCategoryIndex] = useState(initialCategoryIndex);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [customDate, setCustomDate] = useState<Date | null>(null);

@@ -1,11 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Alert, Linking, View } from "react-native";
-import { router } from "expo-router";
+import { router, type Href } from "expo-router";
 import { useSQLiteContext } from "expo-sqlite";
 import * as Updates from "expo-updates";
 import * as WebBrowser from "expo-web-browser";
-import { Button, Form, Host, Image, Label, Picker, RNHostView, Section, Slider, Text, Toggle } from "@expo/ui/swift-ui";
+import { Button, Form, Host, Image, Label, LabeledContent, Picker, RNHostView, Section, Text, Toggle } from "@expo/ui/swift-ui";
 import {
   background,
   environment,
@@ -30,7 +30,6 @@ import { ProfileHeader } from "@/components/profile/ProfileHeader";
 import { useSyncStatus } from "@/components/SyncProvider";
 import { clearCashflowDatabase } from "@/data/cashflow/schema";
 import { useCashflowData } from "@/data/cashflow/CashflowDataProvider";
-import { deleteAccount } from "@/lib/api/account";
 import { updateProfile } from "@/lib/api/profile";
 import { alpha } from "@/lib/color";
 import { SUPPORTED_CURRENCIES } from "@/lib/currency";
@@ -39,6 +38,8 @@ import { clearPreferences } from "@/lib/preferences";
 import { formatRelativeTime } from "@/lib/relativeTime";
 
 const SETTINGS_ICON_SIZE = 15;
+const ACCOUNT_ROUTE = "/(cashflow)/(tabs)/profile/account" as Href;
+const FONT_SETTINGS_ROUTE = "/(cashflow)/(tabs)/profile/font-settings" as Href;
 const PRIVACY_POLICY_URL = "https://cashflow-notion.vercel.app/privacy";
 const SUPPORT_EMAIL = "rorezxez@gmail.com";
 
@@ -54,30 +55,9 @@ export function ProfileContent() {
   const updates = Updates.useUpdates();
   const [isCheckingForUpdate, setIsCheckingForUpdate] = useState(false);
   const [isUpdatingPhoto, setIsUpdatingPhoto] = useState(false);
-  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
-  const [draftTextSize, setDraftTextSize] = useState(appTheme.textSize);
-  const [draftTextSpacing, setDraftTextSpacing] = useState(appTheme.textSpacing);
-  const [isEditingTextSize, setIsEditingTextSize] = useState(false);
-  const [isEditingTextSpacing, setIsEditingTextSpacing] = useState(false);
-  const draftTextSizeRef = useRef(appTheme.textSize);
-  const draftTextSpacingRef = useRef(appTheme.textSpacing);
   const rowBackground = alpha(appTheme.colors.muted, appTheme.isDark ? 0.18 : 0.1);
   const profileHeaderVerticalPadding = Math.max(16, Math.round(appTheme.textSize * 1.1));
   const rowModifiers = [listRowBackground(rowBackground)];
-
-  useEffect(() => {
-    draftTextSizeRef.current = appTheme.textSize;
-    queueMicrotask(() => setDraftTextSize(appTheme.textSize));
-  }, [appTheme.textSize]);
-
-  useEffect(() => {
-    draftTextSpacingRef.current = appTheme.textSpacing;
-    queueMicrotask(() => setDraftTextSpacing(appTheme.textSpacing));
-  }, [appTheme.textSpacing]);
-
-  const showMockAction = (title: string) => {
-    Alert.alert(title, t("profile.mockMessage"));
-  };
 
   const updateProfilePhoto = async () => {
     if (!auth.isAuthenticated || isUpdatingPhoto) return;
@@ -152,30 +132,6 @@ export function ProfileContent() {
     }
   };
 
-  const deleteUserAccount = async () => {
-    if (isDeletingAccount) return;
-
-    setIsDeletingAccount(true);
-
-    try {
-      await deleteAccount();
-      await clearCashflowDatabase(db);
-      await clearPreferences();
-      await cashflowData.refresh();
-      try {
-        await auth.signOut();
-      } catch (error) {
-        console.warn("Failed to clear auth session after account deletion", error);
-      }
-      Alert.alert(t("profile.accountDeletedTitle"), t("profile.accountDeletedMessage"));
-      router.replace("/");
-    } catch (error) {
-      Alert.alert(t("profile.deleteAccountFailedTitle"), error instanceof Error ? error.message : t("profile.deleteAccountFailedMessage"));
-    } finally {
-      setIsDeletingAccount(false);
-    }
-  };
-
   const handleSignOut = async () => {
     try {
       await clearCashflowDatabase(db);
@@ -192,45 +148,8 @@ export function ProfileContent() {
     router.replace("/");
   };
 
-  const confirmDeleteAccount = () => {
-    Alert.alert(
-      t("profile.deleteConfirmTitle"),
-      t("profile.deleteConfirmMessage"),
-      [
-        { text: t("profile.deleteConfirmCancel"), style: "cancel" },
-        { text: t("profile.deleteConfirmDelete"), style: "destructive", onPress: () => void deleteUserAccount() },
-      ],
-    );
-  };
-
   const setDarkMode = (value: boolean) => {
     appTheme.setColorScheme(value ? "dark" : "light");
-  };
-
-  const updateDraftTextSize = (value: number) => {
-    draftTextSizeRef.current = value;
-    setDraftTextSize(value);
-  };
-
-  const updateDraftTextSpacing = (value: number) => {
-    draftTextSpacingRef.current = value;
-    setDraftTextSpacing(value);
-  };
-
-  const commitDraftTextSize = (isEditing: boolean) => {
-    setIsEditingTextSize(isEditing);
-
-    if (!isEditing) {
-      appTheme.setTextSize(draftTextSizeRef.current);
-    }
-  };
-
-  const commitDraftTextSpacing = (isEditing: boolean) => {
-    setIsEditingTextSpacing(isEditing);
-
-    if (!isEditing) {
-      appTheme.setTextSpacing(draftTextSpacingRef.current);
-    }
   };
 
   const updateStatus = !Updates.isEnabled
@@ -242,19 +161,16 @@ export function ProfileContent() {
         : updates.isChecking || isCheckingForUpdate
           ? t("profile.updateStatusChecking")
           : t("profile.updateStatusUpToDate");
-  const lastUpdateCheck = updates.lastCheckForUpdateTimeSinceRestart
-    ? formatRelativeTime(updates.lastCheckForUpdateTimeSinceRestart)
-    : t("profile.updateNotChecked");
-  const syncStatusText = sync.status === "syncing"
+  const syncActionLabel = sync.status === "syncing"
     ? t("profile.syncStatusSyncing")
     : sync.status === "error"
-      ? t("profile.syncStatusError")
-      : t("profile.syncStatusLastSync", { time: formatRelativeTime(sync.lastSync) });
-  const syncActionTitle = sync.status === "error"
-    ? t("profile.syncActionRetry")
+      ? t("profile.syncActionRetry")
+      : t("profile.syncActionNow");
+  const syncDetail = sync.status === "error"
+    ? t("profile.syncStatusError")
     : sync.status === "syncing"
-      ? t("profile.syncStatusSyncing")
-      : `${syncStatusText} - ${t("profile.syncActionNow")}`;
+      ? ""
+      : t("profile.syncStatusLastSync", { time: formatRelativeTime(sync.lastSync) });
 
   return (
     <View
@@ -288,12 +204,9 @@ export function ProfileContent() {
                   }}
                 >
                     <ProfileHeader
-                      avatarUrl={auth.avatarUrl}
                       avatarSource={auth.avatarSource}
-                      email={auth.email}
                       initials={auth.initials}
                       isUpdatingPhoto={isUpdatingPhoto}
-                      name={auth.displayName}
                       onUpdatePhoto={updateProfilePhoto}
                     />
                 </View>
@@ -313,11 +226,17 @@ export function ProfileContent() {
 
           <Section title={t("profile.account")}>
             {auth.isAuthenticated ? (
-              <Label
-                title={auth.displayName}
-                icon={<Image systemName="person.crop.circle" size={SETTINGS_ICON_SIZE} color={appTheme.colors.primary} />}
-                modifiers={[...rowModifiers, onTapGesture(() => showMockAction(t("profile.personalInformation")))]}
-              />
+              <LabeledContent
+                label={
+                  <Label
+                    title={auth.displayName}
+                    icon={<Image systemName="person.crop.circle" size={SETTINGS_ICON_SIZE} color={appTheme.colors.primary} />}
+                  />
+                }
+                modifiers={[...rowModifiers, onTapGesture(() => router.push(ACCOUNT_ROUTE))]}
+              >
+                <Text>{auth.email}</Text>
+              </LabeledContent>
             ) : null}
             {!auth.isAuthenticated ? (
               <Button
@@ -331,24 +250,30 @@ export function ProfileContent() {
               </Button>
             ) : null}
             {auth.isAuthenticated ? (
-              <Button
-                onPress={sync.status === "syncing" ? undefined : () => void sync.syncNow()}
-                modifiers={[...rowModifiers, tint(sync.status === "error" ? appTheme.colors.negative : appTheme.colors.primary)]}
+              <LabeledContent
+                label={
+                  <Label
+                    title={syncActionLabel}
+                    icon={<Image systemName="arrow.triangle.2.circlepath" size={SETTINGS_ICON_SIZE} color={sync.status === "error" ? appTheme.colors.negative : appTheme.colors.primary} />}
+                  />
+                }
+                modifiers={[
+                  ...rowModifiers,
+                  tint(sync.status === "error" ? appTheme.colors.negative : appTheme.colors.primary),
+                  ...(sync.status === "syncing" ? [] : [onTapGesture(() => void sync.syncNow())]),
+                ]}
               >
-                <Label
-                  title={syncActionTitle}
-                  icon={<Image systemName="arrow.triangle.2.circlepath" size={SETTINGS_ICON_SIZE} color={sync.status === "error" ? appTheme.colors.negative : appTheme.colors.primary} />}
-                />
-              </Button>
+                <Text>{syncDetail}</Text>
+              </LabeledContent>
             ) : null}
             {auth.isAuthenticated ? (
               <Button
-                onPress={isDeletingAccount ? undefined : confirmDeleteAccount}
+                onPress={handleSignOut}
                 modifiers={[...rowModifiers, tint(appTheme.colors.negative)]}
               >
                 <Label
-                  title={isDeletingAccount ? t("profile.deletingAccount") : t("profile.deleteAccount")}
-                  icon={<Image systemName="trash" size={SETTINGS_ICON_SIZE} color={appTheme.colors.negative} />}
+                  title={t("common.signOut")}
+                  icon={<Image systemName="rectangle.portrait.and.arrow.right" size={SETTINGS_ICON_SIZE} color={appTheme.colors.negative} />}
                 />
               </Button>
             ) : null}
@@ -382,35 +307,17 @@ export function ProfileContent() {
                 </Text>
               ))}
             </Picker>
-            <Slider
-              value={draftTextSize}
-              min={14}
-              max={22}
-              step={1}
-              label={<Text>{t("profile.textSizeLabel", { value: appTheme.usesSystemTextSettings && !isEditingTextSize ? t("profile.system") : `${draftTextSize} pt` })}</Text>}
-              onValueChange={updateDraftTextSize}
-              onEditingChanged={commitDraftTextSize}
-              modifiers={[...rowModifiers, tint(appTheme.colors.primary)]}
-            />
-            <Slider
-              value={draftTextSpacing}
-              min={-0.5}
-              max={1.5}
-              step={0.25}
-              label={<Text>{t("profile.textSpacingLabel", { value: appTheme.usesSystemTextSettings && !isEditingTextSpacing ? t("profile.system") : draftTextSpacing.toFixed(2) })}</Text>}
-              onValueChange={updateDraftTextSpacing}
-              onEditingChanged={commitDraftTextSpacing}
-              modifiers={[...rowModifiers, tint(appTheme.colors.primary)]}
-            />
-            <Button
-              onPress={appTheme.resetTextSettings}
-              modifiers={[...rowModifiers, tint(appTheme.colors.primary)]}
+            <LabeledContent
+              label={
+                <Label
+                  title="Font"
+                  icon={<Image systemName="textformat.size" size={SETTINGS_ICON_SIZE} />}
+                />
+              }
+              modifiers={[...rowModifiers, onTapGesture(() => router.push(FONT_SETTINGS_ROUTE))]}
             >
-              <Label
-                title={t("profile.useSystemTextSettings")}
-                icon={<Image systemName="textformat.size" size={SETTINGS_ICON_SIZE} color={appTheme.colors.primary} />}
-              />
-            </Button>
+              <Text />
+            </LabeledContent>
           </Section>
 
           <Section title={t("profile.app")}>
@@ -447,29 +354,36 @@ export function ProfileContent() {
             </Picker>
           </Section>
 
-          <Section title={t("profile.updates")} footer={<Text>{t("profile.lastChecked", { time: lastUpdateCheck })}</Text>}>
-            <Button
-              onPress={checkForUpdates}
-              modifiers={[...rowModifiers, tint(appTheme.colors.primary)]}
+          <Section title={t("profile.updates")}>
+            <LabeledContent
+              label={
+                <Label
+                  title={isCheckingForUpdate ? t("profile.checkingForUpdates") : t("profile.checkForUpdates")}
+                  icon={<Image systemName="arrow.clockwise.circle" size={SETTINGS_ICON_SIZE} color={appTheme.colors.primary} />}
+                />
+              }
+              modifiers={[
+                ...rowModifiers,
+                tint(appTheme.colors.primary),
+                ...(isCheckingForUpdate ? [] : [onTapGesture(() => void checkForUpdates())]),
+              ]}
             >
-              <Label
-                title={isCheckingForUpdate ? t("profile.checkingForUpdates") : t("profile.checkForUpdates")}
-                icon={<Image systemName="arrow.clockwise.circle" size={SETTINGS_ICON_SIZE} color={appTheme.colors.primary} />}
-              />
-            </Button>
-            <Label
-              title={t("profile.statusLabel", { status: updateStatus })}
-              icon={<Image systemName="icloud.and.arrow.down" size={SETTINGS_ICON_SIZE} color={appTheme.colors.primary} />}
+              <Text>{updateStatus}</Text>
+            </LabeledContent>
+            <LabeledContent
+              label={
+                <Label
+                  title={t("profile.appVersion", { version: APP_VERSION })}
+                  icon={<Image systemName="info.circle" size={SETTINGS_ICON_SIZE} color={appTheme.colors.primary} />}
+                />
+              }
               modifiers={rowModifiers}
-            />
-            <Label
-              title={t("profile.appVersion", { version: APP_VERSION })}
-              icon={<Image systemName="info.circle" size={SETTINGS_ICON_SIZE} color={appTheme.colors.primary} />}
-              modifiers={rowModifiers}
-            />
+            >
+              <Text>{APP_VERSION}</Text>
+            </LabeledContent>
           </Section>
 
-          <Section title={t("profile.getHelp")} footer={<Text>{`${APP_NAME} ${APP_VERSION}`}</Text>}>
+          <Section title={t("profile.getHelp")}>
             <Button
               onPress={() => void openPrivacyPolicy()}
               modifiers={[...rowModifiers, tint(appTheme.colors.primary)]}
@@ -484,7 +398,7 @@ export function ProfileContent() {
               modifiers={[...rowModifiers, tint(appTheme.colors.primary)]}
             >
               <Label
-                title={`${t("profile.contactSupport")}: ${SUPPORT_EMAIL}`}
+                title={t("profile.contactSupport")}
                 icon={
                   <Image
                     systemName="bubble.left.and.bubble.right"
@@ -495,21 +409,9 @@ export function ProfileContent() {
               />
             </Button>
           </Section>
-          {auth.isAuthenticated ? (
-            <Section>
-              <Button
-                onPress={isDeletingAccount ? undefined : handleSignOut}
-                modifiers={[...rowModifiers, tint(appTheme.colors.negative)]}
-              >
-                <Label
-                  title={t("common.signOut")}
-                  icon={<Image systemName="rectangle.portrait.and.arrow.right" size={SETTINGS_ICON_SIZE} color={appTheme.colors.negative} />}
-                />
-              </Button>
-            </Section>
-          ) : null}
         </Form>
       </Host>
+
     </View>
   );
 }

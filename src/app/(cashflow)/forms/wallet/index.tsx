@@ -10,47 +10,16 @@ import { useCurrency } from "@/components/CurrencyProvider";
 import { useCashflowData } from "@/data/cashflow/CashflowDataProvider";
 import { alpha } from "@/lib/color";
 import { walletImageToIcon } from "@/lib/categoryMapping";
-import { colorsToThemeSet, extractColors } from "@/lib/palette";
 import { getManagementImageSource } from "@/lib/protectedImage";
 
 export default function WalletFormSheet() {
   const appTheme = useAppTheme();
   const { t } = useTranslation();
   const { format } = useCurrency();
-  const { activeManagementId, managements, setActiveManagementId, updateManagementImageTheme } = useCashflowData();
-
-  const applyWalletTheme = async (management: (typeof managements)[number]) => {
-    const image = management.image?.trim();
-    if (!image || image.startsWith("symbol:")) return;
-
-    if (management.imageTheme?.image === image) {
-      const hasSavedTheme = appTheme.availableThemes.some((theme) => theme.slug === management.imageTheme?.themeSlug);
-      if (hasSavedTheme) {
-        appTheme.setTheme(management.imageTheme.themeSlug);
-      } else {
-        const savedTheme = await appTheme.saveTheme(`${management.name} Wallet`, management.imageTheme.themeSet);
-        await updateManagementImageTheme(management.id, {
-          ...management.imageTheme,
-          themeSlug: savedTheme.slug,
-        });
-      }
-      return;
-    }
-
-    const imageSource = getManagementImageSource(image);
-    const uri = typeof imageSource === "number" ? null : imageSource?.uri;
-    if (!uri) return;
-
-    const colors = await extractColors(uri, typeof imageSource === "number" ? undefined : imageSource?.headers);
-    const themeSet = colorsToThemeSet(colors);
-    const savedTheme = await appTheme.saveTheme(`${management.name} Wallet`, themeSet);
-    await updateManagementImageTheme(management.id, {
-      version: 1,
-      image,
-      themeSlug: savedTheme.slug,
-      themeSet,
-    });
-  };
+  const { activeManagementId, managements, setActiveManagementId } = useCashflowData();
+  const borderColor = alpha(appTheme.colors.foreground, appTheme.isDark ? 0.09 : 0.07);
+  const rowSurface = alpha(appTheme.colors.foreground, appTheme.isDark ? 0.045 : 0.035);
+  const surface = alpha(appTheme.colors.foreground, appTheme.isDark ? 0.035 : 0.025);
 
   const handleSelectManagement = async (management: (typeof managements)[number]) => {
     try {
@@ -58,11 +27,11 @@ export default function WalletFormSheet() {
     } catch (error) {
       console.error("Failed to set active management", error);
     }
-    void applyWalletTheme(management).catch((error) => console.error("Failed to apply wallet image theme", error));
   };
 
   return (
     <>
+      <Stack.Screen options={{ title: t("sidebar.wallet") }} />
       <Stack.Toolbar placement="right">
         <Stack.Toolbar.View hidesSharedBackground>
           <GlassView
@@ -103,7 +72,7 @@ export default function WalletFormSheet() {
           {managements.map((management) => {
             const isActive = management.id === activeManagementId;
             const imageSource = getManagementImageSource(management.image);
-            const walletPrimary = management.imageTheme?.themeSet[appTheme.resolvedScheme]["--color-primary"] ?? appTheme.colors.primary;
+            const tint = management.balance < 0 ? appTheme.colors.negative : appTheme.colors.primary;
             return (
               <Pressable
                 key={management.id}
@@ -112,12 +81,12 @@ export default function WalletFormSheet() {
                 onPress={() => handleSelectManagement(management)}
                 className="rounded-3xl border p-4"
                 style={{
-                  backgroundColor: alpha(walletPrimary, isActive ? (appTheme.isDark ? 0.18 : 0.1) : appTheme.isDark ? 0.1 : 0.065),
-                  borderColor: isActive ? alpha(walletPrimary, 0.6) : alpha(walletPrimary, appTheme.isDark ? 0.34 : 0.22),
+                  backgroundColor: surface,
+                  borderColor: isActive ? alpha(appTheme.colors.primary, 0.5) : borderColor,
                 }}
               >
                 <View className="flex-row items-center gap-3">
-                  <View className="h-11 w-11 items-center justify-center overflow-hidden rounded-2xl" style={{ backgroundColor: alpha(walletPrimary, 0.16) }}>
+                  <View className="h-11 w-11 items-center justify-center overflow-hidden rounded-2xl" style={{ backgroundColor: alpha(tint, 0.14) }}>
                     {imageSource ? (
                       <Image
                         source={imageSource}
@@ -127,7 +96,7 @@ export default function WalletFormSheet() {
                         style={{ height: "100%", width: "100%" }}
                       />
                     ) : (
-                      <SymbolView name={walletImageToIcon(management.image)} size={20} tintColor={walletPrimary} fallback={<Text style={{ color: walletPrimary }}>•</Text>} />
+                      <SymbolView name={walletImageToIcon(management.image)} size={20} tintColor={tint} fallback={<Text style={{ color: tint }}>•</Text>} />
                     )}
                   </View>
                   <View className="min-w-0 flex-1">
@@ -143,7 +112,7 @@ export default function WalletFormSheet() {
                       {format(management.balance, { compact: true })}
                     </Text>
                     {isActive ? (
-                      <Text className="text-xs font-semibold" style={{ color: walletPrimary }}>
+                      <Text className="text-xs font-semibold" style={{ color: appTheme.colors.primary }}>
                         {t("wallet.active")}
                       </Text>
                     ) : null}
@@ -153,7 +122,7 @@ export default function WalletFormSheet() {
                   accessibilityRole="button"
                   onPress={() => router.push({ pathname: "/forms/wallet/detail", params: { id: management.id } } as Href)}
                   className="mt-4 min-h-10 items-center justify-center rounded-2xl"
-                  style={{ backgroundColor: appTheme.colors.background }}
+                  style={{ backgroundColor: rowSurface }}
                 >
                   <Text className="text-sm font-bold" style={{ color: appTheme.colors.foreground }}>
                     {t("wallet.manageWallet")}

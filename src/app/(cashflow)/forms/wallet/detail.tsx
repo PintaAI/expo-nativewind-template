@@ -42,8 +42,8 @@ export default function WalletDetailScreen() {
   const serverManagementId = management?.remoteId ?? null;
   const displayImage = previewImageUri ?? image;
   const managementImageSource = previewImageUri ? { uri: previewImageUri } : getManagementImageSource(image);
-  const borderColor = appTheme.isDark ? "rgba(255,255,255,0.12)" : "rgba(15,23,42,0.1)";
-  const surface = appTheme.isDark ? "rgba(255,255,255,0.055)" : "rgba(15,23,42,0.035)";
+  const borderColor = alpha(appTheme.colors.foreground, appTheme.isDark ? 0.09 : 0.07);
+  const surface = alpha(appTheme.colors.foreground, appTheme.isDark ? 0.035 : 0.025);
 
   if (loadedWalletKey !== walletStateKey) {
     setLoadedWalletKey(walletStateKey);
@@ -233,7 +233,7 @@ export default function WalletDetailScreen() {
                 <SymbolView name={walletImageToIcon(displayImage)} size={38} tintColor={appTheme.colors.primary} fallback={<Text style={{ color: appTheme.colors.primary }}>•</Text>} />
               )}
               {isUploadingImage ? (
-                <View className="absolute inset-0 items-center justify-center gap-1" style={{ backgroundColor: "rgba(0,0,0,0.32)" }}>
+                <View className="absolute inset-0 items-center justify-center gap-1" style={{ backgroundColor: alpha(appTheme.colors.foreground, 0.32) }}>
                   <ActivityIndicator color={appTheme.colors.inverseForeground} size="small" />
                   <Text className="text-xs font-bold" style={{ color: appTheme.colors.inverseForeground }}>
                     {t("wallet.uploading")}
