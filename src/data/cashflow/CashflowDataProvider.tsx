@@ -17,6 +17,7 @@ import {
   deleteEntry as softDeleteEntry,
   createTransfer as insertTransfer,
   createManagement as insertManagement,
+  deleteManagement as softDeleteManagement,
   emptyCashflowStats,
   getActiveManagementId,
   listCategories,
@@ -52,6 +53,22 @@ export function CashflowDataProvider({ children }: { children: ReactNode }) {
   const [recurringEntries, setRecurringEntries] = useState<CashflowRecurringEntry[]>([]);
   const [entries, setEntries] = useState<CashflowEntry[]>([]);
 
+  const loadActiveWalletData = useCallback(async (managementId: string) => {
+    const [nextCategories, nextOverallBudgets, nextQuickFills, nextRecurringEntries, nextEntries] = await Promise.all([
+      listCategories(db, managementId),
+      listOverallBudgets(db, managementId),
+      listQuickFills(db, managementId),
+      listRecurringEntries(db, managementId),
+      listEntries(db, managementId),
+    ]);
+
+    setCategories(nextCategories);
+    setOverallBudgets(nextOverallBudgets);
+    setQuickFills(nextQuickFills);
+    setRecurringEntries(nextRecurringEntries);
+    setEntries(nextEntries);
+  }, [db]);
+
   const refresh = useCallback(async () => {
     const [nextManagements, storedManagementId] = await Promise.all([listManagements(db), getActiveManagementId(db)]);
     const fallbackManagementId = storedManagementId ?? nextManagements[0]?.id ?? null;
@@ -70,22 +87,9 @@ export function CashflowDataProvider({ children }: { children: ReactNode }) {
     }
 
     await materializeDueRecurringEntries(db, fallbackManagementId);
-
-    const [nextCategories, nextOverallBudgets, nextQuickFills, nextRecurringEntries, nextEntries] = await Promise.all([
-      listCategories(db, fallbackManagementId),
-      listOverallBudgets(db, fallbackManagementId),
-      listQuickFills(db, fallbackManagementId),
-      listRecurringEntries(db, fallbackManagementId),
-      listEntries(db, fallbackManagementId),
-    ]);
-
-    setCategories(nextCategories);
-    setOverallBudgets(nextOverallBudgets);
-    setQuickFills(nextQuickFills);
-    setRecurringEntries(nextRecurringEntries);
-    setEntries(nextEntries);
+    await loadActiveWalletData(fallbackManagementId);
     setIsReady(true);
-  }, [db]);
+  }, [db, loadActiveWalletData]);
 
   useEffect(() => {
     let isMounted = true;
@@ -126,9 +130,11 @@ export function CashflowDataProvider({ children }: { children: ReactNode }) {
     stats: entries.length > 0 ? stats : emptyCashflowStats,
     activity: entries.length > 0 ? activity : emptyActivity,
     analytics: entries.length > 0 ? analytics : emptyAnalytics,
-    setActiveManagementId: async (managementId) => {
-      await persistActiveManagementId(db, managementId);
-      await refresh();
+    setActiveManagementId: (managementId) => {
+      setActiveManagementIdState(managementId);
+      void persistActiveManagementId(db, managementId).catch((error) => console.error("Failed to persist active management id", error));
+      void loadActiveWalletData(managementId).catch((error) => console.error("Failed to load wallet data", error));
+      return Promise.resolve();
     },
     setManagementImage: async (managementId: string, image: string, imageTheme: ManagementImageTheme | null) => {
       await persistManagementImage(db, managementId, image, imageTheme);
@@ -144,6 +150,10 @@ export function CashflowDataProvider({ children }: { children: ReactNode }) {
     },
     updateManagement: async (managementId: string, input: UpdateManagementInput) => {
       await updateManagementInRepo(db, managementId, input);
+      await refresh();
+    },
+    deleteManagement: async (managementId: string) => {
+      await softDeleteManagement(db, managementId);
       await refresh();
     },
     listManagementMembers: (managementId: string) => listManagementMembersFromRepo(db, managementId),

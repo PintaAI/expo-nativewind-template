@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
 import { GlassView } from "expo-glass-effect";
 import { Image } from "expo-image";
@@ -19,7 +18,6 @@ export default function WalletFormSheet() {
   const { t } = useTranslation();
   const { format } = useCurrency();
   const { activeManagementId, managements, setActiveManagementId, updateManagementImageTheme } = useCashflowData();
-  const [applyingManagementId, setApplyingManagementId] = useState<string | null>(null);
 
   const applyWalletTheme = async (management: (typeof managements)[number]) => {
     const image = management.image?.trim();
@@ -55,16 +53,12 @@ export default function WalletFormSheet() {
   };
 
   const handleSelectManagement = async (management: (typeof managements)[number]) => {
-    setApplyingManagementId(management.id);
     try {
-      await applyWalletTheme(management);
       await setActiveManagementId(management.id);
     } catch (error) {
-      console.error("Failed to apply wallet image theme", error);
-      await setActiveManagementId(management.id);
-    } finally {
-      setApplyingManagementId(null);
+      console.error("Failed to set active management", error);
     }
+    void applyWalletTheme(management).catch((error) => console.error("Failed to apply wallet image theme", error));
   };
 
   return (
@@ -115,7 +109,6 @@ export default function WalletFormSheet() {
                 key={management.id}
                 accessibilityRole="button"
                 accessibilityState={{ selected: isActive }}
-                disabled={applyingManagementId !== null}
                 onPress={() => handleSelectManagement(management)}
                 className="rounded-3xl border p-4"
                 style={{
@@ -149,11 +142,7 @@ export default function WalletFormSheet() {
                     <Text className="text-sm font-bold" style={{ color: management.balance < 0 ? appTheme.colors.negative : appTheme.colors.foreground }}>
                       {format(management.balance, { compact: true })}
                     </Text>
-                    {applyingManagementId === management.id ? (
-                      <Text className="text-xs font-semibold" style={{ color: walletPrimary }}>
-                        {t("wallet.theming")}
-                      </Text>
-                    ) : isActive ? (
+                    {isActive ? (
                       <Text className="text-xs font-semibold" style={{ color: walletPrimary }}>
                         {t("wallet.active")}
                       </Text>

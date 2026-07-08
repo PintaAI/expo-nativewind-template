@@ -9,6 +9,7 @@ export type RecurringFrequency = "daily" | "weekly" | "monthly";
 
 export type CashflowManagement = {
   id: string;
+  remoteId: string | null;
   name: string;
   image: string | null;
   imageTheme: ManagementImageTheme | null;
@@ -150,6 +151,7 @@ export type CashflowDataState = {
   updateManagementImageTheme: (managementId: string, imageTheme: ManagementImageTheme) => Promise<void>;
   createManagement: (input: CreateManagementInput) => Promise<void>;
   updateManagement: (managementId: string, input: UpdateManagementInput) => Promise<void>;
+  deleteManagement: (managementId: string) => Promise<void>;
   listManagementMembers: (managementId: string) => Promise<CashflowManagementMember[]>;
   createCategory: (input: CreateCategoryInput) => Promise<void>;
   updateCategory: (categoryId: string, input: UpdateCategoryInput) => Promise<void>;

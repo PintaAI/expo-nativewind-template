@@ -25,6 +25,7 @@ import type {
 
 type ManagementRow = {
   id: string;
+  remote_id: string | null;
   name: string;
   image: string | null;
   image_theme_json: string | null;
@@ -132,6 +133,7 @@ function createId(prefix: string) {
 function mapManagement(row: ManagementRow): CashflowManagement {
   return {
     id: row.id,
+    remoteId: row.remote_id,
     name: row.name,
     image: row.image,
     imageTheme: parseManagementImageTheme(row.image_theme_json),
@@ -187,7 +189,13 @@ function addDaysToKey(dateKey: string, days: number) {
 
 export async function getActiveManagementId(db: SQLiteDatabase) {
   const preference = await db.getFirstAsync<{ value: string }>("SELECT value FROM app_preferences WHERE key = 'active_management_id'");
-  if (preference?.value) return preference.value;
+  if (preference?.value) {
+    const activeManagement = await db.getFirstAsync<{ id: string }>(
+      "SELECT id FROM managements WHERE id = ? AND deleted_at IS NULL LIMIT 1",
+      preference.value,
+    );
+    if (activeManagement) return activeManagement.id;
+  }
 
   const firstManagement = await db.getFirstAsync<{ id: string }>("SELECT id FROM managements WHERE deleted_at IS NULL ORDER BY created_at LIMIT 1");
   if (!firstManagement) return null;
@@ -208,6 +216,7 @@ export async function listManagements(db: SQLiteDatabase) {
   const rows = await db.getAllAsync<ManagementRow>(`
     SELECT
       m.id,
+      m.remote_id,
       m.name,
       m.image,
       m.image_theme_json,
@@ -491,6 +500,34 @@ export async function updateManagement(db: SQLiteDatabase, managementId: string,
     updatedAt,
     managementId,
   );
+}
+
+export async function deleteManagement(db: SQLiteDatabase, managementId: string) {
+  const updatedAt = nowIso();
+  const activeManagementId = await getActiveManagementId(db);
+
+  await db.runAsync(
+    `UPDATE managements SET
+       deleted_at = ?,
+       updated_at = ?,
+       sync_status = 'deleted'
+     WHERE id = ? AND deleted_at IS NULL`,
+    updatedAt,
+    updatedAt,
+    managementId,
+  );
+
+  if (activeManagementId === managementId) {
+    const nextManagement = await db.getFirstAsync<{ id: string }>(
+      "SELECT id FROM managements WHERE deleted_at IS NULL ORDER BY created_at LIMIT 1",
+    );
+
+    if (nextManagement) {
+      await setActiveManagementId(db, nextManagement.id);
+    } else {
+      await db.runAsync("DELETE FROM app_preferences WHERE key = 'active_management_id'");
+    }
+  }
 }
 
 export async function updateManagementImageTheme(db: SQLiteDatabase, managementId: string, imageTheme: ManagementImageTheme) {

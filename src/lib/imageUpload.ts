@@ -7,14 +7,10 @@ export type PickedUploadImage = {
 };
 
 export async function pickUploadImage(aspect: [number, number] = [1, 1]): Promise<PickedUploadImage | null> {
-  const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-  if (!permission.granted) throw new Error("Photo library permission is required to upload an image.");
-
   const result = await ImagePicker.launchImageLibraryAsync({
     mediaTypes: ["images"],
-    allowsEditing: true,
-    aspect,
-    quality: 0.85,
+    allowsEditing: false,
+    quality: 1,
   });
 
   if (result.canceled) return null;
@@ -28,12 +24,4 @@ export async function pickUploadImage(aspect: [number, number] = [1, 1]): Promis
     name: asset.fileName ?? `upload.${extension}`,
     type,
   };
-}
-
-export function appendUploadImage(formData: FormData, field: string, image: PickedUploadImage) {
-  formData.append(field, {
-    uri: image.uri,
-    name: image.name,
-    type: image.type,
-  } as unknown as Blob);
 }

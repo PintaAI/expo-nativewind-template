@@ -1,4 +1,5 @@
-import { apiPutForm } from "./client";
+import type { PickedUploadImage } from "../imageUpload";
+import { apiUploadFile } from "./client";
 
 export type ProfileUpdateResult = {
   status: "success";
@@ -10,6 +11,10 @@ export type ProfileUpdateResult = {
   };
 };
 
-export function updateProfile(formData: FormData): Promise<ProfileUpdateResult> {
-  return apiPutForm<ProfileUpdateResult>("/profile", formData);
+export function updateProfile(name: string, image: PickedUploadImage): Promise<ProfileUpdateResult> {
+  return apiUploadFile<ProfileUpdateResult>("/profile", image, {
+    method: "PUT",
+    fieldName: "image",
+    parameters: { name },
+  });
 }

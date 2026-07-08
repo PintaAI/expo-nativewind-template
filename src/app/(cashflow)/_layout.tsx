@@ -18,7 +18,6 @@ const nestedFormSheetOptions = {
 const cashflowFormScreens = [
   "entry-form",
   "transfer",
-  "categories",
   "automatic-entry",
   "quick-fill",
   "reminder",
@@ -37,6 +36,7 @@ export default function CashflowLayout() {
       >
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="forms/wallet" options={nestedFormSheetOptions} />
+        <Stack.Screen name="forms/categories" options={nestedFormSheetOptions} />
         {cashflowFormScreens.map((screen) => (
           <Stack.Screen key={screen} name={`forms/${screen}`} options={formSheetOptions} />
         ))}

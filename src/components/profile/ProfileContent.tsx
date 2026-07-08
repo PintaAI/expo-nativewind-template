@@ -34,7 +34,7 @@ import { deleteAccount } from "@/lib/api/account";
 import { updateProfile } from "@/lib/api/profile";
 import { alpha } from "@/lib/color";
 import { SUPPORTED_CURRENCIES } from "@/lib/currency";
-import { appendUploadImage, pickUploadImage } from "@/lib/imageUpload";
+import { pickUploadImage } from "@/lib/imageUpload";
 import { clearPreferences } from "@/lib/preferences";
 import { formatRelativeTime } from "@/lib/relativeTime";
 
@@ -87,11 +87,7 @@ export function ProfileContent() {
       const pickedImage = await pickUploadImage([1, 1]);
       if (!pickedImage) return;
 
-      const formData = new FormData();
-      formData.set("name", auth.displayName);
-      appendUploadImage(formData, "image", pickedImage);
-
-      await updateProfile(formData);
+      await updateProfile(auth.displayName, pickedImage);
       await auth.refresh();
     } catch (error) {
       Alert.alert(t("profile.photoUploadFailedTitle"), error instanceof Error ? error.message : t("profile.photoUploadFailedMessage"));
@@ -178,6 +174,22 @@ export function ProfileContent() {
     } finally {
       setIsDeletingAccount(false);
     }
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await clearCashflowDatabase(db);
+      await clearPreferences();
+      await cashflowData.refresh();
+    } catch (error) {
+      console.warn("Failed to clear local data on sign out", error);
+    }
+    try {
+      await auth.signOut();
+    } catch (error) {
+      console.warn("Failed to sign out", error);
+    }
+    router.replace("/");
   };
 
   const confirmDeleteAccount = () => {
@@ -486,7 +498,7 @@ export function ProfileContent() {
           {auth.isAuthenticated ? (
             <Section>
               <Button
-                onPress={isDeletingAccount ? undefined : auth.signOut}
+                onPress={isDeletingAccount ? undefined : handleSignOut}
                 modifiers={[...rowModifiers, tint(appTheme.colors.negative)]}
               >
                 <Label

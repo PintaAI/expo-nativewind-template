@@ -1,3 +1,5 @@
+import { File, UploadType } from "expo-file-system";
+
 import { authBaseURL, authClient } from "@/lib/auth-client";
 
 export const apiBaseURL = `${authBaseURL}/api/v1`;
@@ -62,8 +64,30 @@ export function apiPut<T>(path: string, body?: unknown, init: RequestInit = {}):
   });
 }
 
-export function apiPutForm<T>(path: string, body: FormData, init: RequestInit = {}): Promise<T> {
-  return apiFetch<T>(path, { ...init, method: "PUT", body });
+export async function apiUploadFile<T>(
+  path: string,
+  file: { uri: string; type: string },
+  init: { fieldName: string; method?: "POST" | "PUT" | "PATCH"; parameters?: Record<string, string> },
+): Promise<T> {
+  const cookie = authClient.getCookie();
+  const result = await new File(file.uri).upload(`${apiBaseURL}${path}`, {
+    httpMethod: init.method ?? "POST",
+    uploadType: UploadType.MULTIPART,
+    fieldName: init.fieldName,
+    mimeType: file.type,
+    parameters: init.parameters,
+    headers: cookie ? { Cookie: cookie } : undefined,
+  });
+  let json: { data?: T; error?: string } = {};
+  if (result.body) {
+    try {
+      json = JSON.parse(result.body) as { data?: T; error?: string };
+    } catch {
+      json = {};
+    }
+  }
+  if (result.status < 200 || result.status >= 300) throw new ApiError(result.status, json.error ?? "Upload failed");
+  return json.data as T;
 }
 
 export function apiDelete(path: string, init: RequestInit = {}): Promise<void> {

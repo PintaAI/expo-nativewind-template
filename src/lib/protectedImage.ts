@@ -5,10 +5,6 @@ function sourceFor(path: string, route: "management-photo" | "profile-photo"): I
   const cookie = authClient.getCookie();
   const uri = `${authBaseURL}/api/${route}?pathname=${encodeURIComponent(path)}`;
 
-  if (route === "management-photo") {
-    console.log("[management] image URL", uri);
-  }
-
   return {
     uri,
     ...(cookie ? { headers: { Cookie: cookie } } : {}),

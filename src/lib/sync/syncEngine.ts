@@ -1,6 +1,7 @@
 import type { SQLiteDatabase } from "expo-sqlite";
+import { ApiError } from "@/lib/api/client";
 import { createEntry, deleteEntry, listEntries, updateEntry } from "@/lib/api/entries";
-import { createManagement, listManagements, updateManagement } from "@/lib/api/managements";
+import { createManagement, deleteManagement, listManagements, updateManagement } from "@/lib/api/managements";
 import { createCategory, deleteCategory, listCategories, updateCategory } from "@/lib/api/categories";
 import { createQuickFill, deleteQuickFill, listQuickFills, updateQuickFill } from "@/lib/api/quick-fills";
 import { deleteOverallBudget, listOverallBudgets, saveOverallBudget } from "@/lib/api/budgets";
@@ -75,6 +76,19 @@ function nowIso() {
   return new Date().toISOString();
 }
 
+async function hardDeleteManagementTree(db: SQLiteDatabase, managementId: string): Promise<void> {
+  await db.withTransactionAsync(async () => {
+    await db.runAsync("DELETE FROM entries WHERE management_id = ?", managementId);
+    await db.runAsync("DELETE FROM recurring_entries WHERE management_id = ?", managementId);
+    await db.runAsync("DELETE FROM quick_fills WHERE management_id = ?", managementId);
+    await db.runAsync("DELETE FROM overall_budgets WHERE management_id = ?", managementId);
+    await db.runAsync("DELETE FROM categories WHERE management_id = ?", managementId);
+    await db.runAsync("DELETE FROM audit_snapshots WHERE management_id = ?", managementId);
+    await db.runAsync("DELETE FROM management_members WHERE management_id = ?", managementId);
+    await db.runAsync("DELETE FROM managements WHERE id = ?", managementId);
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Push phase
 // ---------------------------------------------------------------------------
@@ -87,8 +101,19 @@ async function pushManagements(db: SQLiteDatabase, summary: SyncSummary): Promis
     const local = row as unknown as ManagementRow;
     try {
       if (local.sync_status === "deleted") {
-        // No server DELETE endpoint for managements in v1 — drop locally only.
-        await hardDeleteById(db, "managements", local.id);
+        if (local.remote_id) {
+          try {
+            await deleteManagement(local.remote_id);
+          } catch (error) {
+            const status = error instanceof ApiError ? error.status : 0;
+            if (status === 404 || status === 405) {
+              // Already gone on the server, or server doesn't support wallet DELETE yet — drop locally.
+            } else {
+              throw error;
+            }
+          }
+        }
+        await hardDeleteManagementTree(db, local.id);
         summary.pushed += 1;
         continue;
       }
