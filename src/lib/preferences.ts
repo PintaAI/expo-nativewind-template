@@ -15,6 +15,7 @@ export type Preferences = {
   textSpacing: number | null;
   activityView: "grid" | "calendar";
   cashflowCategoryIndex: number | null;
+  cashflowQuickFillCategoryIndex: number | null;
   currency: string;
   exchangeRates: Record<string, number> | null;
 };
@@ -29,6 +30,7 @@ const preferenceDefaults: Preferences = {
   textSpacing: null,
   activityView: "grid",
   cashflowCategoryIndex: null,
+  cashflowQuickFillCategoryIndex: null,
   currency: "IDR",
   exchangeRates: null,
 };

@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Pressable, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { Animated, Easing, Pressable, View } from "react-native";
 import { SymbolView, type SFSymbol } from "expo-symbols";
 import { router } from "expo-router";
 import { useTranslation } from "react-i18next";
@@ -7,12 +7,17 @@ import { useTranslation } from "react-i18next";
 import { AppText as RNText } from "@/components/AppText";
 import { useAppTheme } from "@/components/AppTheme";
 import { useCurrency } from "@/components/CurrencyProvider";
+import { useSyncStatus } from "@/components/SyncProvider";
 import { alpha } from "@/lib/color";
 
 export type CashflowStats = {
   totalIncome: number;
   totalExpenses: number;
   balance: number;
+  currentDay: {
+    income: number;
+    expenses: number;
+  };
   currentWeek: {
     weekNumber: number;
     range: string;
@@ -35,6 +40,10 @@ export const mockCashflowStats: CashflowStats = {
   totalIncome: 12850000,
   totalExpenses: 7420000,
   balance: 5430000,
+  currentDay: {
+    income: 450000,
+    expenses: 125000,
+  },
   currentWeek: {
     weekNumber: 27,
     range: "30 Jun - 6 Jul",
@@ -64,17 +73,65 @@ function StatSymbol({ name, color }: { name: SFSymbol; color: string }) {
   );
 }
 
+function SkeletonBlock({ className, color, style }: { className?: string; color: string; style?: object }) {
+  const opacity = useRef(new Animated.Value(0.42)).current;
+
+  useEffect(() => {
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(opacity, {
+          toValue: 0.82,
+          duration: 720,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(opacity, {
+          toValue: 0.42,
+          duration: 720,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+
+    animation.start();
+    return () => animation.stop();
+  }, [opacity]);
+
+  return <Animated.View className={className} style={[{ backgroundColor: color, opacity }, style]} />;
+}
+
 export function CashflowStatsCard({ stats, hideMoreButton = false, managementName }: { stats: CashflowStats; hideMoreButton?: boolean; managementName?: string }) {
   const { t } = useTranslation();
   const appTheme = useAppTheme();
   const { format } = useCurrency();
+  const sync = useSyncStatus();
   const [showBalance, setShowBalance] = useState(true);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [balancePeriod, setBalancePeriod] = useState<"daily" | "weekly" | "monthly" | "allTime">("allTime");
   const positive = appTheme.colors.positive;
   const negative = appTheme.colors.negative;
   const detailBackground = appTheme.isDark ? "rgba(255,255,255,0.045)" : "rgba(15,23,42,0.035)";
   const mutedLine = appTheme.isDark ? "rgba(255,255,255,0.12)" : "rgba(15,23,42,0.1)";
-  const balanceText = showBalance ? format(stats.balance, { compact: true }) : "••••••";
+  const skeletonColor = appTheme.isDark ? "rgba(255,255,255,0.16)" : "rgba(15,23,42,0.12)";
+  const isSyncing = sync.status === "syncing";
+  const balancePeriods = ["daily", "weekly", "monthly", "allTime"] as const;
+  const periodBalance = balancePeriod === "daily"
+    ? stats.currentDay.income - stats.currentDay.expenses
+    : balancePeriod === "weekly"
+      ? stats.currentWeek.income - stats.currentWeek.expenses
+      : balancePeriod === "monthly"
+        ? stats.currentMonth.income - stats.currentMonth.expenses
+        : stats.balance;
+  const balanceText = showBalance ? format(periodBalance, { compact: true }) : "••••••";
+  const balancePeriodLabel = t(`analytics.${balancePeriod}`);
+  const topExpenseCategories = isSyncing && stats.topExpenseCategories.length === 0
+    ? [
+        { category: "skeleton-1", total: 0, percentage: 72 },
+        { category: "skeleton-2", total: 0, percentage: 56 },
+        { category: "skeleton-3", total: 0, percentage: 38 },
+      ]
+    : stats.topExpenseCategories;
 
   return (
     <View className="mb-5">
@@ -87,49 +144,92 @@ export function CashflowStatsCard({ stats, hideMoreButton = false, managementNam
             className="max-w-[170px] flex-row items-center gap-1.5 rounded-full px-2.5 py-1.5"
             style={{ backgroundColor: detailBackground }}
           >
-            <RNText
-              numberOfLines={1}
-              className="shrink text-xs font-semibold uppercase tracking-[2px]"
-              style={{ color: appTheme.colors.muted }}
-            >
-              {managementName ?? t('analytics.balance')}
-            </RNText>
+            {isSyncing ? (
+              <SkeletonBlock className="h-3 w-20 rounded-full" color={skeletonColor} />
+            ) : (
+              <RNText
+                numberOfLines={1}
+                className="shrink text-xs font-semibold uppercase tracking-[2px]"
+                style={{ color: appTheme.colors.muted }}
+              >
+                {managementName ?? t('analytics.balance')}
+              </RNText>
+            )}
             <StatSymbol name="chevron.down" color={appTheme.colors.muted} />
           </Pressable>
           <Pressable
-            onPress={() => setShowBalance(!showBalance)}
+            onPress={() => router.push("/forms/audit")}
             accessibilityRole="button"
-            accessibilityLabel={showBalance ? t('analytics.hideBalance') : t('analytics.showBalance')}
+            accessibilityLabel={t("audit.open")}
             className="h-8 w-8 items-center justify-center rounded-full"
             style={{ backgroundColor: detailBackground }}
           >
-            <StatSymbol name={showBalance ? "eye.fill" : "eye.slash.fill"} color={appTheme.colors.muted} />
+            <StatSymbol name="checkmark.seal.fill" color={appTheme.colors.muted} />
           </Pressable>
         </View>
 
         <View className="flex-row items-center gap-2">
           <StatSymbol name="arrow.down.circle.fill" color={positive} />
-          <RNText className="text-xs font-semibold" style={{ color: positive }}>
-            {showBalance ? format(stats.totalIncome, { compact: true }) : "••••"}
-          </RNText>
+          {isSyncing ? (
+            <SkeletonBlock className="h-3 w-12 rounded-full" color={skeletonColor} />
+          ) : (
+            <RNText className="text-xs font-semibold" style={{ color: positive }}>
+              {showBalance ? format(stats.totalIncome, { compact: true }) : "••••"}
+            </RNText>
+          )}
           <View className="h-3 w-px" style={{ backgroundColor: mutedLine }} />
           <StatSymbol name="arrow.up.circle.fill" color={negative} />
-          <RNText className="text-xs font-semibold" style={{ color: negative }}>
-            {showBalance ? format(stats.totalExpenses, { compact: true }) : "••••"}
-          </RNText>
+          {isSyncing ? (
+            <SkeletonBlock className="h-3 w-12 rounded-full" color={skeletonColor} />
+          ) : (
+            <RNText className="text-xs font-semibold" style={{ color: negative }}>
+              {showBalance ? format(stats.totalExpenses, { compact: true }) : "••••"}
+            </RNText>
+          )}
         </View>
       </View>
 
       <View className="flex-row items-end justify-between gap-4">
-        <View className="min-w-0 flex-1">
-          <RNText
-            numberOfLines={1}
-            adjustsFontSizeToFit
-            className="text-4xl font-black tracking-tight"
-            style={{ color: stats.balance < 0 ? negative : appTheme.colors.foreground }}
-          >
-            {balanceText}
-          </RNText>
+        <View className="min-w-0 flex-1 flex-row items-end gap-2">
+          {isSyncing ? (
+            <SkeletonBlock className="h-11 w-48 max-w-full rounded-2xl" color={skeletonColor} />
+          ) : (
+            <>
+              <Pressable
+                onPress={() => {
+                  const currentIndex = balancePeriods.indexOf(balancePeriod);
+                  setBalancePeriod(balancePeriods[(currentIndex + 1) % balancePeriods.length]);
+                }}
+                accessibilityRole="button"
+                accessibilityLabel={t("analytics.changeBalancePeriod", { period: balancePeriodLabel })}
+                className="min-w-0 shrink"
+              >
+                <RNText
+                  className="mb-0.5 uppercase"
+                  style={{ color: appTheme.colors.muted, fontSize: 11, fontWeight: "600", letterSpacing: 1 }}
+                >
+                  {balancePeriodLabel}
+                </RNText>
+                <RNText
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  className="text-4xl font-black tracking-tight"
+                  style={{ color: periodBalance < 0 ? negative : appTheme.colors.foreground }}
+                >
+                  {balanceText}
+                </RNText>
+              </Pressable>
+              <Pressable
+                onPress={() => setShowBalance(!showBalance)}
+                accessibilityRole="button"
+                accessibilityLabel={showBalance ? t('analytics.hideBalance') : t('analytics.showBalance')}
+                className="mb-1 h-8 w-8 items-center justify-center rounded-full"
+                style={{ backgroundColor: detailBackground }}
+              >
+                <StatSymbol name={showBalance ? "eye.fill" : "eye.slash.fill"} color={appTheme.colors.muted} />
+              </Pressable>
+            </>
+          )}
 
         </View>
 
@@ -162,29 +262,45 @@ export function CashflowStatsCard({ stats, hideMoreButton = false, managementNam
           <View className="gap-3 py-2">
             <View className="flex-row items-center gap-2">
               <StatSymbol name="calendar" color={appTheme.colors.muted} />
-              <RNText className="text-sm font-bold" style={{ color: appTheme.colors.foreground }}>
-                {stats.currentMonth.label}
-              </RNText>
+              {isSyncing ? (
+                <SkeletonBlock className="h-4 w-24 rounded-full" color={skeletonColor} />
+              ) : (
+                <RNText className="text-sm font-bold" style={{ color: appTheme.colors.foreground }}>
+                  {stats.currentMonth.label}
+                </RNText>
+              )}
             </View>
             <View className="flex-row flex-wrap items-center gap-x-2 gap-y-2">
               <StatSymbol name="arrow.down.circle.fill" color={positive} />
-              <RNText className="text-sm font-bold" style={{ color: positive }}>
-                {showBalance ? format(stats.currentMonth.income, { compact: true }) : "••••"}
-              </RNText>
+              {isSyncing ? (
+                <SkeletonBlock className="h-4 w-14 rounded-full" color={skeletonColor} />
+              ) : (
+                <RNText className="text-sm font-bold" style={{ color: positive }}>
+                  {showBalance ? format(stats.currentMonth.income, { compact: true }) : "••••"}
+                </RNText>
+              )}
               <View className="h-3 w-px" style={{ backgroundColor: mutedLine }} />
               <StatSymbol name="arrow.up.circle.fill" color={negative} />
-              <RNText className="text-sm font-bold" style={{ color: negative }}>
-                {showBalance ? format(stats.currentMonth.expenses, { compact: true }) : "••••"}
-              </RNText>
+              {isSyncing ? (
+                <SkeletonBlock className="h-4 w-14 rounded-full" color={skeletonColor} />
+              ) : (
+                <RNText className="text-sm font-bold" style={{ color: negative }}>
+                  {showBalance ? format(stats.currentMonth.expenses, { compact: true }) : "••••"}
+                </RNText>
+              )}
               <View className="h-3 w-px" style={{ backgroundColor: mutedLine }} />
               <RNText className="text-xs" style={{ color: appTheme.colors.muted }}>
                 {t('analytics.net')}
               </RNText>
-              <RNText className="text-sm font-black" style={{ color: appTheme.colors.foreground }}>
-                {showBalance
-                  ? format(stats.currentMonth.income - stats.currentMonth.expenses, { compact: true })
-                  : "••••"}
-              </RNText>
+              {isSyncing ? (
+                <SkeletonBlock className="h-4 w-14 rounded-full" color={skeletonColor} />
+              ) : (
+                <RNText className="text-sm font-black" style={{ color: appTheme.colors.foreground }}>
+                  {showBalance
+                    ? format(stats.currentMonth.income - stats.currentMonth.expenses, { compact: true })
+                    : "••••"}
+                </RNText>
+              )}
             </View>
           </View>
 
@@ -197,28 +313,44 @@ export function CashflowStatsCard({ stats, hideMoreButton = false, managementNam
                 {t('analytics.currentWeek')}
               </RNText>
             </View>
-            <RNText className="text-xs" style={{ color: appTheme.colors.muted }}>
-              {t('analytics.week', { number: stats.currentWeek.weekNumber, range: stats.currentWeek.range })}
-            </RNText>
+            {isSyncing ? (
+              <SkeletonBlock className="h-3 w-32 rounded-full" color={skeletonColor} />
+            ) : (
+              <RNText className="text-xs" style={{ color: appTheme.colors.muted }}>
+                {t('analytics.week', { number: stats.currentWeek.weekNumber, range: stats.currentWeek.range })}
+              </RNText>
+            )}
             <View className="flex-row items-center gap-2">
               <StatSymbol name="arrow.down.circle.fill" color={positive} />
-              <RNText className="text-sm font-bold" style={{ color: positive }}>
-                {showBalance ? format(stats.currentWeek.income, { compact: true }) : "••••"}
-              </RNText>
+              {isSyncing ? (
+                <SkeletonBlock className="h-4 w-14 rounded-full" color={skeletonColor} />
+              ) : (
+                <RNText className="text-sm font-bold" style={{ color: positive }}>
+                  {showBalance ? format(stats.currentWeek.income, { compact: true }) : "••••"}
+                </RNText>
+              )}
               <View className="h-3 w-px" style={{ backgroundColor: mutedLine }} />
               <StatSymbol name="arrow.up.circle.fill" color={negative} />
-              <RNText className="text-sm font-bold" style={{ color: negative }}>
-                {showBalance ? format(stats.currentWeek.expenses, { compact: true }) : "••••"}
-              </RNText>
+              {isSyncing ? (
+                <SkeletonBlock className="h-4 w-14 rounded-full" color={skeletonColor} />
+              ) : (
+                <RNText className="text-sm font-bold" style={{ color: negative }}>
+                  {showBalance ? format(stats.currentWeek.expenses, { compact: true }) : "••••"}
+                </RNText>
+              )}
               <View className="h-3 w-px" style={{ backgroundColor: mutedLine }} />
               <RNText className="text-xs" style={{ color: appTheme.colors.muted }}>
                 {t('analytics.net')}
               </RNText>
-              <RNText className="text-sm font-black" style={{ color: appTheme.colors.foreground }}>
-                {showBalance
-                  ? format(stats.currentWeek.income - stats.currentWeek.expenses, { compact: true })
-                  : "••••"}
-              </RNText>
+              {isSyncing ? (
+                <SkeletonBlock className="h-4 w-14 rounded-full" color={skeletonColor} />
+              ) : (
+                <RNText className="text-sm font-black" style={{ color: appTheme.colors.foreground }}>
+                  {showBalance
+                    ? format(stats.currentWeek.income - stats.currentWeek.expenses, { compact: true })
+                    : "••••"}
+                </RNText>
+              )}
             </View>
           </View>
 
@@ -229,21 +361,33 @@ export function CashflowStatsCard({ stats, hideMoreButton = false, managementNam
                 {t('analytics.topExpenses')}
               </RNText>
             </View>
-            {stats.topExpenseCategories.map((category, index) => (
+            {topExpenseCategories.map((category, index) => (
               <View key={category.category} className="gap-1.5">
                 <View className="flex-row items-center justify-between gap-3">
-                  <RNText numberOfLines={1} className="flex-1 text-xs" style={{ color: appTheme.colors.muted }}>
-                    {index + 1}. {category.category}
-                  </RNText>
-                  <RNText className="text-xs font-bold" style={{ color: appTheme.colors.foreground }}>
-                    {showBalance ? format(category.total, { compact: true }) : "••••"}
-                  </RNText>
+                  {isSyncing ? (
+                    <SkeletonBlock className="h-3 w-32 rounded-full" color={skeletonColor} />
+                  ) : (
+                    <RNText numberOfLines={1} className="flex-1 text-xs" style={{ color: appTheme.colors.muted }}>
+                      {index + 1}. {category.category}
+                    </RNText>
+                  )}
+                  {isSyncing ? (
+                    <SkeletonBlock className="h-3 w-12 rounded-full" color={skeletonColor} />
+                  ) : (
+                    <RNText className="text-xs font-bold" style={{ color: appTheme.colors.foreground }}>
+                      {showBalance ? format(category.total, { compact: true }) : "••••"}
+                    </RNText>
+                  )}
                 </View>
                 <View className="h-1.5 overflow-hidden rounded-full" style={{ backgroundColor: mutedLine }}>
-                  <View
-                    className="h-full rounded-full"
-                    style={{ width: `${Math.min(category.percentage, 100)}%`, backgroundColor: negative, opacity: 0.72 }}
-                  />
+                  {isSyncing ? (
+                    <SkeletonBlock className="h-full w-2/3 rounded-full" color={skeletonColor} />
+                  ) : (
+                    <View
+                      className="h-full rounded-full"
+                      style={{ width: `${Math.min(category.percentage, 100)}%`, backgroundColor: negative, opacity: 0.72 }}
+                    />
+                  )}
                 </View>
               </View>
             ))}

@@ -2,6 +2,7 @@ import { useRef, useState, useMemo } from "react";
 import type React from "react";
 import { Pressable, ScrollView, View, type ScrollView as ScrollViewType } from "react-native";
 import { SymbolView, type SFSymbol } from "expo-symbols";
+import SegmentedControl from "@expo/ui/community/segmented-control";
 import Svg, { Circle, G } from "react-native-svg";
 import { AppText as RNText } from "@/components/AppText";
 import { useAppTheme } from "@/components/AppTheme";
@@ -37,6 +38,7 @@ type AnalyticsChartsProps = {
   onDatePeriodChange?: (period: DatePeriod) => void;
   selectedMonth?: Date;
   onSelectedMonthChange?: (month: Date) => void;
+  onCategoryPress?: (category: string) => void;
 };
 
 type MockAnalyticsData = {
@@ -143,47 +145,58 @@ export const DATE_PRESETS: DatePeriod[] = [
 // ─── Monthly Trend Bar Chart ──────────────────────────────
 
 function BarChart({ data, highlightedMonths, onMonthPress }: { data: MonthlyAnalytics[]; highlightedMonths?: MonthHighlight; onMonthPress?: (month: string) => void }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const appTheme = useAppTheme();
   const { format } = useCurrency();
   const scrollViewRef = useRef<ScrollViewType>(null);
   const positive = appTheme.colors.positive;
   const negative = appTheme.colors.negative;
   const months = data.slice(-12);
-  const maxVal = Math.max(...months.map((d) => d.income + d.expenses), 1);
-  const height = (value: number) => Math.max(4, (value / maxVal) * 150);
-  const bar = { width: 24 };
+  const maxVal = Math.max(...months.flatMap((d) => [d.income, d.expenses]), 1);
+  const chartColumnWidth = 58;
+  const chartHalfHeight = 90;
+  const chartSplitHeight = 28;
+  const barWidth = 24;
+  const barHeight = (value: number) => Math.max(4, (value / maxVal) * chartHalfHeight);
 
   return (
     <View className="gap-3">
-      <View className="flex-row items-center justify-end gap-4">
-        {[[t('analytics.income'), positive], [t('analytics.expenses'), negative]].map(([label, color]) => (
-          <View key={label as string} className="flex-row items-center gap-1.5">
-            <View className="h-3 w-3 rounded-sm" style={{ backgroundColor: color }} />
-            <RNText className="text-xs" style={{ color: appTheme.colors.muted }}>{label as string}</RNText>
-          </View>
-        ))}
-      </View>
       <ScrollView
         ref={scrollViewRef}
         horizontal
         showsHorizontalScrollIndicator={false}
-        contentContainerClassName="items-end gap-3 pr-1"
-        style={{ height: 220 }}
+        contentContainerClassName="items-center gap-3 pr-1"
+        style={{ height: 250 }}
         onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: false })}
       >
         {months.map((d) => {
           const isSelected = highlightedMonths === "all" || Boolean(highlightedMonths?.includes(d.month));
           const labelColor = isSelected ? appTheme.colors.primary : appTheme.colors.muted;
+          const incomeHeight = barHeight(d.income);
+          const expenseHeight = barHeight(d.expenses);
+          const [y, m] = d.month.split("-").map(Number);
+          const monthOnly = new Date(y, m - 1, 1).toLocaleDateString(i18n.language === "id" ? "id-ID" : "en-US", { month: "short" });
 
           return (
-          <Pressable key={d.month} onPress={() => onMonthPress?.(d.month)} className="w-[58px] items-center gap-1.5">
-            <RNText className="text-xs" style={{ color: labelColor }}>{format(d.income, { compact: true })}</RNText>
-            <View style={{ ...bar, height: height(d.income), backgroundColor: positive, opacity: isSelected ? 1 : 0.45, borderTopLeftRadius: 999, borderTopRightRadius: 999, borderBottomLeftRadius: 50, borderBottomRightRadius: 50 }} />
-            <View style={{ ...bar, height: height(d.expenses), backgroundColor: negative, opacity: isSelected ? 1 : 0.45, borderTopLeftRadius: 50, borderTopRightRadius: 50, borderBottomLeftRadius: 999, borderBottomRightRadius: 999 }} />
-            <RNText className="text-xs" style={{ color: labelColor }}>{format(d.expenses, { compact: true })}</RNText>
-            <View className="w-full items-center rounded-full px-1.5 py-0.5" style={{ backgroundColor: isSelected ? alpha(appTheme.colors.primary, 0.12) : "transparent" }}>
-              <RNText numberOfLines={1} className="text-xs text-center" style={{ color: labelColor, fontWeight: isSelected ? "700" : "400" }}>{d.monthLabel}</RNText>
+          <Pressable key={d.month} onPress={() => onMonthPress?.(d.month)} className="items-center" style={{ width: chartColumnWidth }}>
+            <View style={{ width: chartColumnWidth, height: chartHalfHeight * 2 + chartSplitHeight, marginVertical: 16 }}>
+              <RNText className="absolute text-center" style={{ color: labelColor, fontSize: 11, fontWeight: "700", bottom: chartHalfHeight * 2 + chartSplitHeight + 4, width: chartColumnWidth }}>
+                {format(d.income, { compact: true })}
+              </RNText>
+              <View className="items-center justify-end" style={{ height: chartHalfHeight }}>
+                <View style={{ width: barWidth, height: incomeHeight, backgroundColor: positive, opacity: isSelected ? 1 : 0.45, borderTopLeftRadius: 999, borderTopRightRadius: 999, borderBottomLeftRadius: 50, borderBottomRightRadius: 50 }} />
+              </View>
+              <View className="items-center justify-center" style={{ height: chartSplitHeight }}>
+                <View className="items-center rounded-full px-1.5 py-0.5" style={{ width: chartColumnWidth, backgroundColor: isSelected ? alpha(appTheme.colors.primary, 0.12) : "transparent" }}>
+                  <RNText numberOfLines={1} className="text-xs text-center" style={{ color: labelColor, fontWeight: isSelected ? "700" : "400" }}>{monthOnly}</RNText>
+                </View>
+              </View>
+              <View className="items-center" style={{ height: chartHalfHeight }}>
+                <View style={{ width: barWidth, height: expenseHeight, backgroundColor: negative, opacity: isSelected ? 1 : 0.45, borderTopLeftRadius: 50, borderTopRightRadius: 50, borderBottomLeftRadius: 999, borderBottomRightRadius: 999 }} />
+              </View>
+              <RNText className="absolute text-center" style={{ color: labelColor, fontSize: 11, fontWeight: "700", top: chartHalfHeight * 2 + chartSplitHeight + 4, width: chartColumnWidth }}>
+                {format(d.expenses, { compact: true })}
+              </RNText>
             </View>
           </Pressable>
           );
@@ -268,7 +281,7 @@ function CategoryDonut({ data }: { data: CategoryAnalytics[] }) {
   );
 }
 
-function CategoryBreakdown({ data }: { data: CategoryAnalytics[] }) {
+function CategoryBreakdown({ data, onCategoryPress }: { data: CategoryAnalytics[]; onCategoryPress?: (category: string) => void }) {
   const { t } = useTranslation();
   const appTheme = useAppTheme();
   const { format } = useCurrency();
@@ -278,32 +291,51 @@ function CategoryBreakdown({ data }: { data: CategoryAnalytics[] }) {
     <View className="gap-3">
       <View className="flex-row items-center justify-between gap-3">
         <RNText className="text-sm font-bold" style={{ color: appTheme.colors.foreground }}>{t('analytics.categoryBreakdown')}</RNText>
-        <Pressable onPress={() => setShowDetail(!showDetail)} className="rounded-full px-2.5 py-1" style={{ backgroundColor: appTheme.isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.05)" }}>
-          <RNText className="text-xs font-medium" style={{ color: appTheme.colors.muted }}>{showDetail ? t('analytics.chart') : t('analytics.details')}</RNText>
-        </Pressable>
+        <SegmentedControl
+          values={[t('analytics.chart'), t('analytics.details')]}
+          selectedIndex={showDetail ? 1 : 0}
+          onChange={(event) => setShowDetail(event.nativeEvent.selectedSegmentIndex === 1)}
+          tintColor={appTheme.colors.primary}
+          appearance={appTheme.isDark ? "dark" : "light"}
+          style={{ width: 150 }}
+        />
       </View>
 
       {!showDetail ? (
         <CategoryDonut data={data} />
       ) : (
-        <View className="overflow-hidden rounded-2xl" style={{ borderColor: appTheme.isDark ? "rgba(255,255,255,0.1)" : "rgba(15,23,42,0.08)", borderWidth: 1 }}>
-          <View className="flex-row items-center border-b px-4 py-2.5" style={{ backgroundColor: appTheme.isDark ? "rgba(255,255,255,0.02)" : "rgba(15,23,42,0.02)", borderBottomColor: appTheme.isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.05)" }}>
-            <RNText className="flex-1 text-xs font-semibold" style={{ color: appTheme.colors.muted }}>{t('analytics.categoryLabel')}</RNText>
-            <RNText className="w-[90px] text-right text-xs font-semibold" style={{ color: appTheme.colors.muted }}>{t('analytics.total')}</RNText>
-            <RNText className="w-[55px] text-right text-xs font-semibold" style={{ color: appTheme.colors.muted }}>{t('analytics.count')}</RNText>
-            <RNText className="w-[50px] text-right text-xs font-semibold" style={{ color: appTheme.colors.muted }}>{t('analytics.percent')}</RNText>
-          </View>
-          {data.map((cat, i) => (
-            <View key={cat.category} className="flex-row items-center border-b px-4 py-2.5" style={{ borderBottomColor: appTheme.isDark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.03)", backgroundColor: i === 0 ? alpha(cat.color ?? appTheme.colors.primary, 0.06) : "transparent" }}>
-              <View className="flex-1 flex-row items-center gap-2">
-                <View className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: cat.color }} />
-                <RNText numberOfLines={1} className="text-xs font-medium" style={{ color: appTheme.colors.foreground }}>{cat.category}</RNText>
-              </View>
-              <RNText className="w-[90px] text-right text-xs font-semibold" style={{ color: appTheme.colors.foreground }}>{format(cat.total, { compact: true })}</RNText>
-              <RNText className="w-[55px] text-right text-xs" style={{ color: appTheme.colors.muted }}>{cat.count}</RNText>
-              <RNText className="w-[50px] text-right text-xs" style={{ color: appTheme.colors.muted }}>{cat.percentage}%</RNText>
-            </View>
-          ))}
+        <View className="gap-2">
+          {data.map((cat) => {
+            const color = cat.color ?? appTheme.colors.primary;
+
+            return (
+              <Pressable
+                key={cat.category}
+                onPress={() => onCategoryPress?.(cat.category)}
+                accessibilityRole="button"
+                accessibilityLabel={`${cat.category}, ${format(cat.total)}, ${t('analytics.entries', { count: cat.count })}`}
+                className="min-h-16 flex-row items-center gap-3 rounded-[28px] px-3 py-3"
+                style={{
+                  backgroundColor: alpha(color, appTheme.isDark ? 0.1 : 0.055),
+                  borderColor: alpha(color, appTheme.isDark ? 0.2 : 0.12),
+                  borderWidth: 1,
+                }}
+              >
+                <View className="h-10 w-10 items-center justify-center rounded-2xl" style={{ backgroundColor: alpha(color, 0.13) }}>
+                  <ChartSymbol name="tag.fill" color={color} size={16} />
+                </View>
+                <View className="min-w-0 flex-1 gap-0.5">
+                  <RNText numberOfLines={1} className="text-sm font-semibold" style={{ color: appTheme.colors.foreground }}>{cat.category}</RNText>
+                  <RNText className="text-xs" style={{ color: appTheme.colors.muted }}>{t('analytics.entries', { count: cat.count })}</RNText>
+                </View>
+                <View className="shrink-0 items-end gap-0.5">
+                  <RNText numberOfLines={1} className="text-sm font-bold" style={{ color: appTheme.colors.foreground }}>{format(cat.total, { compact: true })}</RNText>
+                  <RNText className="text-xs font-semibold" style={{ color }}>{cat.percentage}%</RNText>
+                </View>
+                <ChartSymbol name="chevron.right" color={appTheme.colors.muted} size={11} />
+              </Pressable>
+            );
+          })}
         </View>
       )}
     </View>
@@ -357,7 +389,7 @@ function CreatorBreakdown({ data }: { data: CreatorAnalytics[] }) {
 
 // ─── Main Component ───────────────────────────────────────
 
-export function AnalyticsCharts({ header, hideStats = false, data: providedData, monthlyTrendData, datePeriod: controlledDatePeriod, onDatePeriodChange, selectedMonth: controlledSelectedMonth, onSelectedMonthChange }: AnalyticsChartsProps) {
+export function AnalyticsCharts({ header, hideStats = false, data: providedData, monthlyTrendData, datePeriod: controlledDatePeriod, onDatePeriodChange, selectedMonth: controlledSelectedMonth, onSelectedMonthChange, onCategoryPress }: AnalyticsChartsProps) {
   const { t, i18n } = useTranslation();
   const appTheme = useAppTheme();
   const { format } = useCurrency();
@@ -467,13 +499,23 @@ export function AnalyticsCharts({ header, hideStats = false, data: providedData,
 
       {/* Monthly Trend */}
       <View className="overflow-hidden rounded-2xl p-4" style={{ borderColor, borderWidth: 1 }}>
-        <RNText className="mb-3 text-sm font-bold" style={{ color: appTheme.colors.foreground }}>{t('analytics.monthlyTrend')}</RNText>
+        <View className="mb-3 flex-row items-center justify-between">
+          <RNText className="text-sm font-bold" style={{ color: appTheme.colors.foreground }}>{t('analytics.monthlyTrend')}</RNText>
+          <View className="flex-row items-center gap-4">
+            {[[t('analytics.income'), positive], [t('analytics.expenses'), negative]].map(([label, color]) => (
+              <View key={label as string} className="flex-row items-center gap-1.5">
+                <View className="h-3 w-3 rounded-sm" style={{ backgroundColor: color }} />
+                <RNText className="text-xs" style={{ color: appTheme.colors.muted }}>{label as string}</RNText>
+              </View>
+            ))}
+          </View>
+        </View>
         <BarChart data={monthlyTrendData ?? data.byMonth} highlightedMonths={highlightedMonths} onMonthPress={setSelectedMonthKey} />
       </View>
 
       {/* Category Breakdown */}
       <View className="overflow-hidden rounded-2xl p-4" style={{ borderColor, borderWidth: 1 }}>
-        <CategoryBreakdown data={data.byCategory} />
+        <CategoryBreakdown data={data.byCategory} onCategoryPress={onCategoryPress} />
       </View>
 
       {/* Creator Breakdown */}

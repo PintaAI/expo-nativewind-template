@@ -1,21 +1,22 @@
 import { Alert, Pressable, ScrollView, TextInput, View } from "react-native";
-import { router, Stack } from "expo-router";
+import { router, Stack, type Href } from "expo-router";
 import { SymbolView, type SFSymbol } from "expo-symbols";
-import { useState } from "react";
+import { GlassBox } from "@/components/GlassBox";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { AppText as Text } from "@/components/AppText";
 import { useAppTheme } from "@/components/AppTheme";
+import { CashflowAmountInput, QuickAmountStrip } from "@/components/cashflow/AmountEntryControls";
+import { CategorySlider } from "@/components/cashflow/CategorySlider";
+import { loadCategorySliderFeedback, playCategorySliderFeedback } from "@/components/cashflow/categorySliderFeedback";
+import { useCashflowCategorySlider } from "@/components/cashflow/useCashflowCategorySlider";
 import { useCurrency } from "@/components/CurrencyProvider";
 import { useCashflowData } from "@/data/cashflow/CashflowDataProvider";
 import { alpha } from "@/lib/color";
 
-function formatAmountInput(value: number | null) {
-  return value ? String(value).replace(/\B(?=(\d{3})+(?!\d))/g, ".") : "";
-}
-
 function parseAmountInput(value: string) {
-  const parsed = parseInt(value.replace(/\D/g, ""), 10);
+  const parsed = parseInt(value, 10);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }
 
@@ -26,11 +27,33 @@ export default function QuickFillFormSheet() {
   const { activeManagement, categories, quickFills, createQuickFill, deleteQuickFill } = useCashflowData();
   const [label, setLabel] = useState("");
   const [amountText, setAmountText] = useState("");
-  const [categoryId, setCategoryId] = useState<string | null>(null);
+  const [showForm, setShowForm] = useState(false);
+
   const borderColor = alpha(appTheme.colors.foreground, appTheme.isDark ? 0.09 : 0.07);
   const surface = alpha(appTheme.colors.foreground, appTheme.isDark ? 0.035 : 0.025);
   const rowSurface = alpha(appTheme.colors.foreground, appTheme.isDark ? 0.045 : 0.035);
-  const selectedCategory = categories.find((category) => category.id === categoryId) ?? null;
+
+  const {
+    categoryIndex,
+    categoryOptions,
+    handleCategoryChange,
+    selectedCategory,
+    sliderRef,
+  } = useCashflowCategorySlider({
+    categories,
+    primaryColor: appTheme.colors.primary,
+    preferenceKey: "cashflowQuickFillCategoryIndex",
+    restoreEnabled: showForm,
+  });
+  const categoryId = selectedCategory?.id ?? null;
+
+  const addQuickAmount = (value: number) => {
+    setAmountText((prev) => String((parseInt(prev, 10) || 0) + value));
+  };
+
+  useEffect(() => {
+    loadCategorySliderFeedback();
+  }, []);
 
   const handleCreate = async () => {
     const trimmed = label.trim();
@@ -42,21 +65,43 @@ export default function QuickFillFormSheet() {
     await createQuickFill({ label: trimmed, amount, categoryId });
     setLabel("");
     setAmountText("");
-    setCategoryId(null);
   };
 
   const confirmDelete = (id: string, quickFillLabel: string) => {
-    Alert.alert(t('quickFill.removeAlert.title'), t('quickFill.removeAlert.message', { label: quickFillLabel }), [
-      { text: t('common.cancel'), style: "cancel" },
-      { text: t('quickFill.removeAlert.remove'), style: "destructive", onPress: () => deleteQuickFill(id) },
+    Alert.alert(t("quickFill.removeAlert.title"), t("quickFill.removeAlert.message", { label: quickFillLabel }), [
+      { text: t("common.cancel"), style: "cancel" },
+      { text: t("quickFill.removeAlert.remove"), style: "destructive", onPress: () => deleteQuickFill(id) },
     ]);
   };
 
   return (
     <>
-      <Stack.Screen options={{ title: t('quickFill.title') }} />
+      <Stack.Screen options={{ title: activeManagement?.name ?? t("quickFill.wallet") }} />
       <Stack.Toolbar placement="left">
         <Stack.Toolbar.Button icon="xmark" onPress={() => router.back()} />
+      </Stack.Toolbar>
+      <Stack.Toolbar placement="right">
+        <Stack.Toolbar.View hidesSharedBackground>
+          <GlassBox
+            isInteractive
+            tintColor={alpha(appTheme.colors.primary, appTheme.isDark ? 1 : 0.72)}
+            glassEffectStyle="clear"
+            style={{ borderRadius: 9999 }}
+          >
+            <Pressable
+              accessibilityRole="button"
+              className="flex-row items-center gap-1.5 px-6 py-3"
+              onPress={() => {
+                setShowForm(true);
+              }}
+            >
+              <SymbolView name="plus" size={16} tintColor={appTheme.colors.background} fallback={<Text className="text-base" style={{ color: appTheme.colors.background }}>+</Text>} />
+              <Text className="font-bold text-base" style={{ color: appTheme.colors.background }}>
+                {t("entry.tambah")}
+              </Text>
+            </Pressable>
+          </GlassBox>
+        </Stack.Toolbar.View>
       </Stack.Toolbar>
       <ScrollView
         className="flex-1 bg-[--app-color-background]"
@@ -64,89 +109,54 @@ export default function QuickFillFormSheet() {
         contentInsetAdjustmentBehavior="automatic"
         keyboardShouldPersistTaps="handled"
       >
-        <View className="gap-2">
-          <Text className="text-xs font-semibold uppercase tracking-[2px]" style={{ color: appTheme.colors.muted }}>
-            {activeManagement?.name ?? t('quickFill.wallet')}
-          </Text>
+        <View className="gap-1">
           <Text className="text-3xl font-black tracking-tight" style={{ color: appTheme.colors.foreground }}>
-            {t('quickFill.title')}
+            {t("quickFill.title")}
           </Text>
           <Text className="text-sm leading-5" style={{ color: appTheme.colors.muted }}>
-            {t('quickFill.description')}
+            {t("quickFill.description")}
           </Text>
         </View>
 
-        <View className="gap-3 rounded-3xl border p-4" style={{ borderColor, backgroundColor: surface }}>
-          <Text className="text-sm font-bold" style={{ color: appTheme.colors.foreground }}>
-            {t('quickFill.new')}
-          </Text>
-          <TextInput
-            value={label}
-            onChangeText={setLabel}
-            placeholder={t('quickFill.shortcutLabel')}
-            placeholderTextColor={appTheme.colors.muted}
-            selectionColor={appTheme.colors.primary}
-            className="rounded-2xl px-4 py-3 text-base"
-            style={{ color: appTheme.colors.foreground, backgroundColor: rowSurface, borderColor, borderWidth: 1 }}
-          />
-          <TextInput
-            value={amountText ? `${currency.option.symbol} ${amountText}` : ""}
-            onChangeText={(text) => setAmountText(formatAmountInput(parseAmountInput(text)))}
-            placeholder={t('quickFill.defaultAmount')}
-            placeholderTextColor={appTheme.colors.muted}
-            keyboardType="number-pad"
-            selectionColor={appTheme.colors.primary}
-            className="rounded-2xl px-4 py-3 text-base"
-            style={{ color: appTheme.colors.foreground, backgroundColor: rowSurface, borderColor, borderWidth: 1 }}
-          />
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+        {showForm ? (
+          <>
+            <CashflowAmountInput amountText={amountText} currencySymbol={currency.option.symbol} onAmountTextChange={setAmountText} />
+            <QuickAmountStrip hidden denominations={currency.denominations} onAmount={addQuickAmount} />
+
+            <TextInput
+              value={label}
+              onChangeText={setLabel}
+              placeholder={t("quickFill.shortcutLabel")}
+              placeholderTextColor={appTheme.colors.muted}
+              selectionColor={appTheme.colors.primary}
+              className="rounded-2xl px-4 py-3 text-base"
+              style={{ color: appTheme.colors.foreground, backgroundColor: rowSurface, borderColor, borderWidth: 1 }}
+            />
+
+            {categoryOptions.length > 0 ? (
+              <CategorySlider
+                ref={sliderRef}
+                categories={categoryOptions}
+                selectedIndex={categoryIndex}
+                onChangeIndex={handleCategoryChange}
+                showAddButton
+                onAddPress={() => router.push("/forms/categories" as Href)}
+                onFeedback={() => playCategorySliderFeedback("selection")}
+              />
+            ) : null}
+
             <Pressable
               accessibilityRole="button"
-              accessibilityState={{ selected: categoryId === null }}
-              onPress={() => setCategoryId(null)}
-              className="min-h-10 flex-row items-center rounded-full border px-3"
-              style={{ backgroundColor: categoryId === null ? alpha(appTheme.colors.primary, 0.14) : "transparent", borderColor: categoryId === null ? appTheme.colors.primary : borderColor }}
+              onPress={handleCreate}
+              className="min-h-12 items-center justify-center rounded-2xl px-4"
+              style={{ backgroundColor: label.trim() ? appTheme.colors.primary : alpha(appTheme.colors.primary, 0.28) }}
             >
-              <Text className="text-sm font-semibold" style={{ color: categoryId === null ? appTheme.colors.primary : appTheme.colors.foreground }}>
-                {t('quickFill.noCategory')}
+              <Text className="font-bold" style={{ color: appTheme.colors.inverseForeground }}>
+                {t("quickFill.create")}
               </Text>
             </Pressable>
-            {categories.map((category) => {
-              const color = category.color ?? appTheme.colors.primary;
-              const selected = categoryId === category.id;
-              return (
-                <Pressable
-                  key={category.id}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected }}
-                  onPress={() => setCategoryId(category.id)}
-                  className="min-h-10 flex-row items-center gap-1.5 rounded-full border px-3"
-                  style={{ backgroundColor: selected ? alpha(color, 0.18) : "transparent", borderColor: selected ? color : borderColor }}
-                >
-                  <SymbolView name={(category.icon ?? "tag.fill") as SFSymbol} size={14} tintColor={color} fallback={<Text style={{ color }}>•</Text>} />
-                  <Text className="text-sm font-semibold" style={{ color: selected ? color : appTheme.colors.foreground }}>
-                    {category.name}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
-          <Pressable
-            accessibilityRole="button"
-            onPress={handleCreate}
-            className="min-h-12 items-center justify-center rounded-2xl px-4"
-            style={{ backgroundColor: label.trim() ? appTheme.colors.primary : alpha(appTheme.colors.primary, 0.28) }}
-          >
-            <Text className="font-bold" style={{ color: appTheme.colors.inverseForeground }}>
-              {t('quickFill.create')}
-            </Text>
-          </Pressable>
-          {selectedCategory ? (
-            <Text className="text-xs" style={{ color: appTheme.colors.muted }}>
-              {t('quickFill.newEntriesPreload', { category: selectedCategory.name })}
-            </Text>
-          ) : null}
-        </View>
+          </>
+        ) : null}
 
         <View className="gap-3">
           {quickFills.map((quickFill) => {
@@ -164,12 +174,12 @@ export default function QuickFillFormSheet() {
                       {quickFill.label}
                     </Text>
                     <Text className="text-xs" style={{ color: appTheme.colors.muted }}>
-                      {[quickFill.amount ? currency.format(quickFill.amount, { compact: true }) : null, category?.name ?? t('quickFill.noCategory')].filter(Boolean).join(" · ")}
+                      {[quickFill.amount ? currency.format(quickFill.amount, { compact: true }) : null, category?.name ?? t("quickFill.noCategory")].filter(Boolean).join(" · ")}
                     </Text>
                   </View>
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel={t('quickFill.removeLabel', { label: quickFill.label })}
+                    accessibilityLabel={t("quickFill.removeLabel", { label: quickFill.label })}
                     onPress={() => confirmDelete(quickFill.id, quickFill.label)}
                     className="h-10 w-10 items-center justify-center rounded-full"
                     style={{ backgroundColor: alpha(appTheme.colors.negative, appTheme.isDark ? 0.18 : 0.1) }}

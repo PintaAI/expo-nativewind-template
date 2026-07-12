@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, ScrollView, useWindowDimensions, View } from "react-native";
 import { SymbolView } from "expo-symbols";
-import { GlassView } from "expo-glass-effect";
+import { GlassBox } from "@/components/GlassBox";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { runOnJS } from "react-native-reanimated";
 import { AppText as RNText } from "@/components/AppText";
@@ -125,7 +125,7 @@ function ActivityViewTabs({ view, onChange, compact = false }: { view: ActivityV
 
   return (
     <GestureDetector gesture={swipeGesture}>
-      <GlassView
+      <GlassBox
         isInteractive
         tintColor={alpha(appTheme.colors.primary, appTheme.isDark ? 0.2 : 0.1)}
         glassEffectStyle="clear"
@@ -161,7 +161,7 @@ function ActivityViewTabs({ view, onChange, compact = false }: { view: ActivityV
             </Pressable>
           );
         })}
-      </GlassView>
+      </GlassBox>
     </GestureDetector>
   );
 }

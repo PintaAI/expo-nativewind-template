@@ -1,4 +1,4 @@
-import { Stack } from "expo-router";
+import { router, Stack } from "expo-router";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useDrawer } from "@/components/DrawerContext";
@@ -42,6 +42,10 @@ export default function SummaryScreen() {
         onDatePeriodChange={setDatePeriod}
         selectedMonth={selectedMonth}
         onSelectedMonthChange={setSelectedMonth}
+        onCategoryPress={(category) => router.push({
+          pathname: "/forms/category-entries",
+          params: { category, from: datePeriod.from ?? "", to: datePeriod.to ?? "" },
+        })}
         header={<CashflowStatsCard stats={filteredStats} hideMoreButton managementName={activeManagement?.name} />}
         hideStats
       />

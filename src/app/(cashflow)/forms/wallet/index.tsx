@@ -1,5 +1,5 @@
 import { Pressable, ScrollView, View } from "react-native";
-import { GlassView } from "expo-glass-effect";
+import { GlassBox } from "@/components/GlassBox";
 import { Image } from "expo-image";
 import { router, Stack, type Href } from "expo-router";
 import { SymbolView } from "expo-symbols";
@@ -10,13 +10,18 @@ import { useCurrency } from "@/components/CurrencyProvider";
 import { useCashflowData } from "@/data/cashflow/CashflowDataProvider";
 import { alpha } from "@/lib/color";
 import { walletImageToIcon } from "@/lib/categoryMapping";
+import { colorsToThemeSet, extractColors } from "@/lib/palette";
 import { getManagementImageSource } from "@/lib/protectedImage";
+
+function isPicture(image: string | null): image is string {
+  return !!image && !image.startsWith("symbol:");
+}
 
 export default function WalletFormSheet() {
   const appTheme = useAppTheme();
   const { t } = useTranslation();
   const { format } = useCurrency();
-  const { activeManagementId, managements, setActiveManagementId } = useCashflowData();
+  const { activeManagementId, managements, setActiveManagementId, updateManagementImageTheme } = useCashflowData();
   const borderColor = alpha(appTheme.colors.foreground, appTheme.isDark ? 0.09 : 0.07);
   const rowSurface = alpha(appTheme.colors.foreground, appTheme.isDark ? 0.045 : 0.035);
   const surface = alpha(appTheme.colors.foreground, appTheme.isDark ? 0.035 : 0.025);
@@ -24,6 +29,37 @@ export default function WalletFormSheet() {
   const handleSelectManagement = async (management: (typeof managements)[number]) => {
     try {
       await setActiveManagementId(management.id);
+
+      const managementImage = management.image;
+      if (!isPicture(managementImage)) return;
+
+      if (management.imageTheme?.image === managementImage) {
+        const hasSavedTheme = appTheme.availableThemes.some((theme) => theme.slug === management.imageTheme?.themeSlug);
+        if (hasSavedTheme) {
+          appTheme.setTheme(management.imageTheme.themeSlug);
+          return;
+        }
+
+        const savedTheme = await appTheme.saveTheme(`${management.name} Wallet`, management.imageTheme.themeSet);
+        await updateManagementImageTheme(management.id, {
+          ...management.imageTheme,
+          themeSlug: savedTheme.slug,
+        });
+        return;
+      }
+
+      const imageSource = getManagementImageSource(managementImage);
+      if (!imageSource || typeof imageSource === "number" || Array.isArray(imageSource) || !imageSource.uri) return;
+
+      const colors = await extractColors(imageSource.uri, imageSource.headers);
+      const themeSet = colorsToThemeSet(colors);
+      const savedTheme = await appTheme.saveTheme(`${management.name} Wallet`, themeSet);
+      await updateManagementImageTheme(management.id, {
+        version: 1,
+        image: managementImage,
+        themeSlug: savedTheme.slug,
+        themeSet,
+      });
     } catch (error) {
       console.error("Failed to set active management", error);
     }
@@ -34,7 +70,7 @@ export default function WalletFormSheet() {
       <Stack.Screen options={{ title: t("sidebar.wallet") }} />
       <Stack.Toolbar placement="right">
         <Stack.Toolbar.View hidesSharedBackground>
-          <GlassView
+          <GlassBox
             isInteractive
             tintColor={alpha(appTheme.colors.primary, appTheme.isDark ? 1 : 0.72)}
             glassEffectStyle="clear"
@@ -51,7 +87,7 @@ export default function WalletFormSheet() {
                 {t("sidebar.wallet")}
               </Text>
             </Pressable>
-          </GlassView>
+          </GlassBox>
         </Stack.Toolbar.View>
       </Stack.Toolbar>
 

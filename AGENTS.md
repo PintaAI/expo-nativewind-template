@@ -122,6 +122,7 @@ src/
 - **No `babel.config.js`:** Expo SDK 56 handles Babel internally via Expo Router entry.
 - **No `tailwind.config.*`:** Tailwind v4 uses CSS-based config via `@theme` directives.
 - Theme tokens live in `src/global.css` and runtime values are provided by `VariableContextProvider` in `src/components/ThemeProvider.tsx`.
+- For `Pressable` surfaces that must visibly render a background or border, use a plain `style={{ ... }}` object like `CashflowTable` rather than `style={({ pressed }) => ({ ... })}`. The callback form has not applied these styles reliably through the current NativeWind/react-native-css interop; do not try to compensate by increasing opacity before checking the style delivery pattern.
 
 ## Verification
 

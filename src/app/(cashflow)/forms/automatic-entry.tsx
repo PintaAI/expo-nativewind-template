@@ -1,13 +1,16 @@
-import { useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Alert, Modal, Pressable, ScrollView, TextInput, View } from "react-native";
 import DateTimePicker from "@expo/ui/community/datetime-picker";
-import SegmentedControl from "@expo/ui/community/segmented-control";
-import { router, Stack } from "expo-router";
+import { router, Stack, type Href } from "expo-router";
 import { SymbolView, type SFSymbol } from "expo-symbols";
-
 import { useTranslation } from "react-i18next";
+
 import { AppText as Text } from "@/components/AppText";
 import { useAppTheme } from "@/components/AppTheme";
+import { CashflowAmountInput, QuickAmountStrip } from "@/components/cashflow/AmountEntryControls";
+import { CategorySlider } from "@/components/cashflow/CategorySlider";
+import { loadCategorySliderFeedback, playCategorySliderFeedback } from "@/components/cashflow/categorySliderFeedback";
+import { useCashflowCategorySlider } from "@/components/cashflow/useCashflowCategorySlider";
 import { useCurrency } from "@/components/CurrencyProvider";
 import { useCashflowData } from "@/data/cashflow/CashflowDataProvider";
 import type { RecurringFrequency } from "@/data/cashflow/types";
@@ -15,64 +18,163 @@ import { alpha } from "@/lib/color";
 import { formatDateKey, toDateKey } from "@/lib/date";
 
 const FREQUENCIES = [
-  { value: "daily", label: "Daily" },
-  { value: "weekly", label: "Weekly" },
-  { value: "monthly", label: "Monthly" },
-] as const satisfies readonly { value: RecurringFrequency; label: string }[];
+  { value: "daily", icon: "sun.max.fill" },
+  { value: "weekly", icon: "calendar.badge.clock" },
+  { value: "monthly", icon: "calendar" },
+] as const satisfies readonly { value: RecurringFrequency; icon: SFSymbol }[];
 
-function formatAmountInput(value: number | null) {
-  return value ? String(value).replace(/\B(?=(\d{3})+(?!\d))/g, ".") : "";
+function getDateDaysAhead(daysAhead: number) {
+  const date = new Date();
+  date.setHours(12, 0, 0, 0);
+  date.setDate(date.getDate() + daysAhead);
+  return date;
 }
 
 function parseAmountInput(value: string) {
-  const parsed = parseInt(value.replace(/\D/g, ""), 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+  const parsed = parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+}
+
+function Section({ title, icon, children }: { title: string; icon: SFSymbol; children: ReactNode }) {
+  const appTheme = useAppTheme();
+
+  return (
+    <View className="gap-3">
+      <View className="flex-row items-center gap-2 px-1">
+        <SymbolView name={icon} size={14} tintColor={appTheme.colors.muted} fallback={<Text style={{ color: appTheme.colors.muted }}>•</Text>} />
+        <Text className="text-xs font-semibold uppercase tracking-wide" style={{ color: appTheme.colors.muted }}>
+          {title}
+        </Text>
+      </View>
+      {children}
+    </View>
+  );
+}
+
+function TypeChoice({ label, icon, selected, tint, onPress }: { label: string; icon: SFSymbol; selected: boolean; tint: string; onPress: () => void }) {
+  const appTheme = useAppTheme();
+  const borderColor = selected ? alpha(tint, 0.42) : alpha(appTheme.colors.foreground, appTheme.isDark ? 0.1 : 0.08);
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ selected }}
+      className="min-h-14 flex-1 flex-row items-center justify-center gap-2 rounded-2xl border px-3"
+      onPress={onPress}
+      style={{
+        backgroundColor: selected ? alpha(tint, appTheme.isDark ? 0.2 : 0.12) : alpha(appTheme.colors.foreground, appTheme.isDark ? 0.035 : 0.025),
+        borderColor,
+      }}
+    >
+      <SymbolView name={icon} size={16} tintColor={selected ? tint : appTheme.colors.muted} fallback={<Text style={{ color: selected ? tint : appTheme.colors.muted }}>•</Text>} />
+      <Text className="text-sm font-bold" style={{ color: selected ? tint : appTheme.colors.foreground }}>
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
+function FrequencyChoice({ label, icon, selected, onPress }: { label: string; icon: SFSymbol; selected: boolean; onPress: () => void }) {
+  const appTheme = useAppTheme();
+  const borderColor = selected ? alpha(appTheme.colors.primary, 0.45) : alpha(appTheme.colors.foreground, appTheme.isDark ? 0.1 : 0.08);
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ selected }}
+      className="min-h-16 flex-1 items-center justify-center gap-1 rounded-2xl border px-2 py-2"
+      onPress={onPress}
+      style={{
+        backgroundColor: selected ? alpha(appTheme.colors.primary, appTheme.isDark ? 0.2 : 0.12) : alpha(appTheme.colors.foreground, appTheme.isDark ? 0.035 : 0.025),
+        borderColor,
+      }}
+    >
+      <SymbolView name={icon} size={17} tintColor={selected ? appTheme.colors.primary : appTheme.colors.muted} fallback={<Text style={{ color: appTheme.colors.muted }}>•</Text>} />
+      <Text className="text-sm font-semibold" style={{ color: selected ? appTheme.colors.primary : appTheme.colors.foreground }}>
+        {label}
+      </Text>
+    </Pressable>
+  );
 }
 
 export default function AutomaticEntryFormSheet() {
   const appTheme = useAppTheme();
   const { t } = useTranslation();
-  const { format } = useCurrency();
+  const currency = useCurrency();
   const { activeManagement, categories, recurringEntries, createRecurringEntry, deleteRecurringEntry } = useCashflowData();
   const [name, setName] = useState("");
   const [amountText, setAmountText] = useState("");
   const [ioIndex, setIoIndex] = useState(1);
   const [frequencyIndex, setFrequencyIndex] = useState(1);
-  const [categoryId, setCategoryId] = useState<string | null>(null);
-  const [nextDate, setNextDate] = useState(() => toDateKey(new Date()));
+  const [nextDate, setNextDate] = useState(() => toDateKey(getDateDaysAhead(1)));
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const borderColor = appTheme.isDark ? "rgba(255,255,255,0.12)" : "rgba(15,23,42,0.1)";
-  const surface = appTheme.isDark ? "rgba(255,255,255,0.055)" : "rgba(15,23,42,0.035)";
+  const [isSaving, setIsSaving] = useState(false);
+
+  const borderColor = alpha(appTheme.colors.foreground, appTheme.isDark ? 0.09 : 0.07);
+  const surface = alpha(appTheme.colors.foreground, appTheme.isDark ? 0.035 : 0.025);
+  const rowSurface = alpha(appTheme.colors.foreground, appTheme.isDark ? 0.045 : 0.035);
+  const displayAmount = parseAmountInput(amountText);
+  const nominal = Math.round(currency.toIdr(displayAmount));
+  const canSubmit = Boolean(name.trim() && nominal > 0 && !isSaving);
+
+  const {
+    categoryIndex,
+    categoryOptions,
+    handleCategoryChange,
+    resetCategoryIndex,
+    selectedCategory,
+    sliderRef,
+  } = useCashflowCategorySlider({
+    categories,
+    primaryColor: appTheme.colors.primary,
+    preferenceKey: "cashflowCategoryIndex",
+  });
+  const categoryId = selectedCategory?.id ?? null;
+
+  const addQuickAmount = (value: number) => {
+    setAmountText((prev) => String((parseInt(prev, 10) || 0) + value));
+  };
+
+  useEffect(() => {
+    loadCategorySliderFeedback();
+  }, []);
+
+  const resetForm = () => {
+    setName("");
+    setAmountText("");
+    setIoIndex(1);
+    setFrequencyIndex(1);
+    setNextDate(toDateKey(getDateDaysAhead(1)));
+    resetCategoryIndex();
+  };
 
   const handleCreate = async () => {
     const trimmed = name.trim();
-    const nominal = parseAmountInput(amountText);
 
     if (!trimmed) {
       Alert.alert(t("autoEntry.nameRequiredTitle"), t("autoEntry.nameRequiredMessage"));
       return;
     }
 
-    if (!nominal) {
+    if (nominal <= 0) {
       Alert.alert(t("autoEntry.amountRequiredTitle"), t("autoEntry.amountRequiredMessage"));
       return;
     }
 
-    await createRecurringEntry({
-      name: trimmed,
-      nominal,
-      categoryId,
-      io: ioIndex === 0 ? "Income" : "Expenses",
-      frequency: FREQUENCIES[frequencyIndex].value,
-      nextDate,
-    });
-
-    setName("");
-    setAmountText("");
-    setIoIndex(1);
-    setFrequencyIndex(1);
-    setCategoryId(null);
-    setNextDate(toDateKey(new Date()));
+    setIsSaving(true);
+    try {
+      await createRecurringEntry({
+        name: trimmed,
+        nominal,
+        categoryId,
+        io: ioIndex === 0 ? "Income" : "Expenses",
+        frequency: FREQUENCIES[frequencyIndex].value,
+        nextDate,
+      });
+      resetForm();
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const confirmDelete = (id: string, entryName: string) => {
@@ -84,13 +186,13 @@ export default function AutomaticEntryFormSheet() {
 
   return (
     <>
-      <Stack.Screen options={{ title: "Catat Otomatis" }} />
+      <Stack.Screen options={{ title: activeManagement?.name ?? t("autoEntry.heading") }} />
       <Stack.Toolbar placement="left">
         <Stack.Toolbar.Button icon="xmark" onPress={() => router.back()} />
       </Stack.Toolbar>
       <Stack.Toolbar placement="right">
-        <Stack.Toolbar.Button icon="checkmark" onPress={handleCreate} variant="done">
-          Simpan
+        <Stack.Toolbar.Button icon="checkmark" disabled={!canSubmit} onPress={handleCreate} variant="done">
+          {t("autoEntry.newEntry")}
         </Stack.Toolbar.Button>
       </Stack.Toolbar>
 
@@ -100,10 +202,7 @@ export default function AutomaticEntryFormSheet() {
         contentInsetAdjustmentBehavior="automatic"
         keyboardShouldPersistTaps="handled"
       >
-        <View className="gap-2">
-          <Text className="text-xs font-semibold uppercase tracking-[2px]" style={{ color: appTheme.colors.muted }}>
-            {activeManagement?.name ?? "Wallet"}
-          </Text>
+        <View className="gap-1">
           <Text className="text-3xl font-black tracking-tight" style={{ color: appTheme.colors.foreground }}>
             {t("autoEntry.heading")}
           </Text>
@@ -112,120 +211,99 @@ export default function AutomaticEntryFormSheet() {
           </Text>
         </View>
 
-        <View className="gap-3 rounded-3xl border p-4" style={{ borderColor, backgroundColor: surface }}>
-          <Text className="text-sm font-bold" style={{ color: appTheme.colors.foreground }}>
-            {t("autoEntry.newEntry")}
-          </Text>
-          <SegmentedControl
-            values={[t("entry.income"), t("entry.expense")]}
-            selectedIndex={ioIndex}
-            onChange={(event) => setIoIndex(event.nativeEvent.selectedSegmentIndex)}
-            tintColor={appTheme.colors.primary}
-            appearance={appTheme.isDark ? "dark" : "light"}
-          />
-          <TextInput
-            value={name}
-            onChangeText={setName}
-            placeholder={t("autoEntry.entryNamePlaceholder")}
-            placeholderTextColor={appTheme.colors.muted}
-            selectionColor={appTheme.colors.primary}
-            className="rounded-2xl px-4 py-3 text-base"
-            style={{ color: appTheme.colors.foreground, backgroundColor: appTheme.colors.background, borderColor, borderWidth: 1 }}
-          />
-          <TextInput
-            value={amountText ? `Rp ${amountText}` : ""}
-            onChangeText={(text) => setAmountText(formatAmountInput(parseAmountInput(text)))}
-            placeholder={t("autoEntry.amountPlaceholder")}
-            placeholderTextColor={appTheme.colors.muted}
-            keyboardType="number-pad"
-            selectionColor={appTheme.colors.primary}
-            className="rounded-2xl px-4 py-3 text-base"
-            style={{ color: appTheme.colors.foreground, backgroundColor: appTheme.colors.background, borderColor, borderWidth: 1 }}
-          />
-          <View className="flex-row gap-2">
-            {FREQUENCIES.map((frequency, index) => {
-              const selected = frequencyIndex === index;
-              return (
-                <Pressable
-                  key={frequency.value}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected }}
-                  onPress={() => setFrequencyIndex(index)}
-                  className="min-h-11 flex-1 items-center justify-center rounded-2xl border px-2"
-                  style={{ backgroundColor: selected ? alpha(appTheme.colors.primary, 0.16) : appTheme.colors.background, borderColor: selected ? appTheme.colors.primary : borderColor }}
-                >
-                  <Text className="text-sm font-bold" style={{ color: selected ? appTheme.colors.primary : appTheme.colors.foreground }}>
-                    {t(`autoEntry.${frequency.value}`)}
-                  </Text>
-                </Pressable>
-              );
-            })}
+        <CashflowAmountInput amountText={amountText} currencySymbol={currency.option.symbol} onAmountTextChange={setAmountText} />
+        <QuickAmountStrip hidden denominations={currency.denominations} onAmount={addQuickAmount} />
+
+        <Section title={t("autoEntry.newEntry")} icon="repeat.circle.fill">
+          <View className="gap-3 rounded-[2rem] border p-2" style={{ backgroundColor: surface, borderColor }}>
+            <TextInput
+              value={name}
+              onChangeText={setName}
+              placeholder={t("autoEntry.entryNamePlaceholder")}
+              placeholderTextColor={appTheme.colors.muted}
+              selectionColor={appTheme.colors.primary}
+              className="rounded-3xl px-4 py-3 text-base"
+              style={{ color: appTheme.colors.foreground, backgroundColor: rowSurface, borderColor, borderWidth: 1 }}
+            />
+
+            <View className="flex-row gap-2">
+              <TypeChoice label={t("entry.income")} icon="arrow.down.circle.fill" selected={ioIndex === 0} tint={appTheme.colors.positive} onPress={() => setIoIndex(0)} />
+              <TypeChoice label={t("entry.expense")} icon="arrow.up.circle.fill" selected={ioIndex === 1} tint={appTheme.colors.negative} onPress={() => setIoIndex(1)} />
+            </View>
           </View>
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => setShowDatePicker(true)}
-            className="min-h-12 flex-row items-center justify-between rounded-2xl border px-4"
-            style={{ backgroundColor: appTheme.colors.background, borderColor }}
-          >
-            <Text className="text-base" style={{ color: appTheme.colors.foreground }}>
-              {t("autoEntry.nextRun")}
-            </Text>
-            <Text className="text-base font-bold" style={{ color: appTheme.colors.primary }}>
-              {formatDateKey(nextDate)}
-            </Text>
-          </Pressable>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+        </Section>
+
+        <Section title={t("autoEntry.nextRun")} icon="calendar">
+          <View className="gap-2 rounded-[2rem] border p-2" style={{ backgroundColor: surface, borderColor }}>
+            <View className="flex-row gap-2">
+              {FREQUENCIES.map((frequency, index) => (
+                <FrequencyChoice
+                  key={frequency.value}
+                  label={t(`autoEntry.${frequency.value}`)}
+                  icon={frequency.icon}
+                  selected={frequencyIndex === index}
+                  onPress={() => setFrequencyIndex(index)}
+                />
+              ))}
+            </View>
+
             <Pressable
               accessibilityRole="button"
-              accessibilityState={{ selected: categoryId === null }}
-              onPress={() => setCategoryId(null)}
-              className="min-h-10 flex-row items-center rounded-full border px-3"
-              style={{ backgroundColor: categoryId === null ? alpha(appTheme.colors.primary, 0.14) : appTheme.colors.background, borderColor: categoryId === null ? appTheme.colors.primary : borderColor }}
+              onPress={() => setShowDatePicker(true)}
+              className="min-h-14 flex-row items-center gap-3 rounded-3xl px-4 py-3"
+              style={{ backgroundColor: rowSurface }}
             >
-              <Text className="text-sm font-semibold" style={{ color: categoryId === null ? appTheme.colors.primary : appTheme.colors.foreground }}>
-                {t("autoEntry.noCategory")}
+              <View className="h-10 w-10 items-center justify-center rounded-2xl" style={{ backgroundColor: alpha(appTheme.colors.primary, 0.14) }}>
+                <SymbolView name="calendar.badge.clock" size={17} tintColor={appTheme.colors.primary} fallback={<Text style={{ color: appTheme.colors.primary }}>•</Text>} />
+              </View>
+              <View className="min-w-0 flex-1">
+                <Text className="text-xs font-semibold uppercase tracking-wide" style={{ color: appTheme.colors.muted }}>
+                  {t("autoEntry.nextRun")}
+                </Text>
+                <Text className="mt-0.5 text-base font-bold" style={{ color: appTheme.colors.foreground }}>
+                  {formatDateKey(nextDate)}
+                </Text>
+              </View>
+              <Text className="text-sm font-semibold" style={{ color: appTheme.colors.primary }}>
+                {t("transfer.change")}
               </Text>
             </Pressable>
-            {categories.map((category) => {
-              const color = category.color ?? appTheme.colors.primary;
-              const selected = categoryId === category.id;
-              return (
-                <Pressable
-                  key={category.id}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected }}
-                  onPress={() => setCategoryId(category.id)}
-                  className="min-h-10 flex-row items-center gap-1.5 rounded-full border px-3"
-                  style={{ backgroundColor: selected ? alpha(color, 0.18) : appTheme.colors.background, borderColor: selected ? color : borderColor }}
-                >
-                  <SymbolView name={(category.icon ?? "tag.fill") as SFSymbol} size={14} tintColor={color} fallback={<Text style={{ color }}>•</Text>} />
-                  <Text className="text-sm font-semibold" style={{ color: selected ? color : appTheme.colors.foreground }}>
-                    {category.name}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
-        </View>
+          </View>
+        </Section>
+
+        {categoryOptions.length > 0 ? (
+          <Section title={t("categories.categories")} icon="tag.fill">
+            <CategorySlider
+              ref={sliderRef}
+              categories={categoryOptions}
+              selectedIndex={categoryIndex}
+              onChangeIndex={handleCategoryChange}
+              showAddButton
+              onAddPress={() => router.push("/forms/categories" as Href)}
+              onFeedback={() => playCategorySliderFeedback("selection")}
+            />
+          </Section>
+        ) : null}
 
         <View className="gap-3">
           {recurringEntries.map((entry) => {
             const category = categories.find((item) => item.id === entry.categoryId) ?? null;
             const color = entry.io === "Income" ? appTheme.colors.positive : (category?.color ?? appTheme.colors.negative);
             const frequencyLabel = t(`autoEntry.${entry.frequency}`);
+            const ioLabel = entry.io === "Income" ? t("entry.income") : t("entry.expense");
 
             return (
               <View key={entry.id} className="rounded-3xl border p-4" style={{ borderColor, backgroundColor: surface }}>
                 <View className="flex-row items-center gap-3">
                   <View className="h-11 w-11 items-center justify-center rounded-2xl" style={{ backgroundColor: alpha(color, 0.16) }}>
-                    <SymbolView name="repeat.circle.fill" size={22} tintColor={color} fallback={<Text style={{ color }}>•</Text>} />
+                    <SymbolView name={(category?.icon ?? "repeat.circle.fill") as SFSymbol} size={21} tintColor={color} fallback={<Text style={{ color }}>•</Text>} />
                   </View>
                   <View className="min-w-0 flex-1">
                     <Text numberOfLines={1} className="text-base font-bold" style={{ color: appTheme.colors.foreground }}>
                       {entry.name}
                     </Text>
                     <Text className="text-xs" style={{ color: appTheme.colors.muted }}>
-                      {[format(entry.nominal, { compact: true }), entry.io, frequencyLabel, category?.name ?? t("autoEntry.noCategory")].join(" · ")}
+                      {[currency.format(entry.nominal, { compact: true }), ioLabel, frequencyLabel, category?.name ?? t("autoEntry.noCategory")].join(" · ")}
                     </Text>
                     <Text className="mt-1 text-xs font-semibold" style={{ color: appTheme.colors.primary }}>
                       {t("autoEntry.nextLabel", { date: formatDateKey(entry.nextDate) })}
@@ -247,10 +325,16 @@ export default function AutomaticEntryFormSheet() {
         </View>
       </ScrollView>
 
-      {showDatePicker && (
+      {showDatePicker ? (
         <Modal transparent animationType="fade" onRequestClose={() => setShowDatePicker(false)}>
           <Pressable className="flex-1 justify-end px-4 pb-8" style={{ backgroundColor: "rgba(0,0,0,0.35)" }} onPress={() => setShowDatePicker(false)}>
-            <Pressable className="rounded-3xl border p-4" style={{ backgroundColor: appTheme.colors.background, borderColor }}>
+            <Pressable
+              className="rounded-3xl border p-4"
+              style={{
+                backgroundColor: appTheme.colors.background,
+                borderColor: alpha(appTheme.colors.foreground, appTheme.isDark ? 0.12 : 0.1),
+              }}
+            >
               <DateTimePicker
                 value={new Date(`${nextDate}T12:00:00`)}
                 mode="date"
@@ -266,7 +350,7 @@ export default function AutomaticEntryFormSheet() {
             </Pressable>
           </Pressable>
         </Modal>
-      )}
+      ) : null}
     </>
   );
 }

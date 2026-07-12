@@ -1,9 +1,9 @@
 import { useMemo, useState } from "react";
-import { Pressable, ScrollView, View } from "react-native";
+import { Pressable, RefreshControl, ScrollView, View } from "react-native";
 import { AppText as RNText } from "@/components/AppText";
 import { router, Stack, type Href } from "expo-router";
 import { SymbolView } from "expo-symbols";
-import { GlassView } from "expo-glass-effect";
+import { GlassBox } from "@/components/GlassBox";
 import { useTranslation } from "react-i18next";
 
 import { useDrawer } from "@/components/DrawerContext";
@@ -12,6 +12,7 @@ import { alpha } from "@/lib/color";
 import { ActivityHeatmap } from "@/components/cashflow/ActivityHeatmap";
 import { CashflowTable } from "@/components/cashflow/CashflowTable";
 import { CashflowStatsCard } from "@/components/cashflow/CashflowStatsCard";
+import { useSyncStatus } from "@/components/SyncProvider";
 import { useCashflowData } from "@/data/cashflow/CashflowDataProvider";
 import { toDateKey } from "@/lib/date";
 
@@ -19,6 +20,7 @@ export default function HomeScreen() {
   const { t } = useTranslation();
   const { open } = useDrawer();
   const appTheme = useAppTheme();
+  const sync = useSyncStatus();
   const { activity, entries, stats, activeManagement } = useCashflowData();
   const latestDate = activity.days.at(-1)?.date ?? toDateKey(new Date());
   const [selectedDate, setSelectedDate] = useState(latestDate);
@@ -41,7 +43,7 @@ export default function HomeScreen() {
       </Stack.Toolbar>
       <Stack.Toolbar placement="right">
         <Stack.Toolbar.View hidesSharedBackground>
-            <GlassView
+            <GlassBox
               isInteractive
               tintColor={alpha(appTheme.colors.primary, appTheme.isDark ? 1 : 0.72)}
               glassEffectStyle="clear"
@@ -51,20 +53,29 @@ export default function HomeScreen() {
               accessibilityRole="button"
               accessibilityLabel={t('entry.catat')}
               className="flex-row items-center gap-1.5 px-6 py-3"
-              onPress={() => router.push("/forms/entry-form" as Href)}
+              onPress={() => router.push(`/forms/entry-form?date=${effectiveSelectedDate}` as Href)}
             >
               <SymbolView name="plus" size={16} tintColor={appTheme.colors.background} fallback={<RNText className="text-base" style={{ color: appTheme.colors.background }}>+</RNText>} />
               <RNText className="font-bold text-base" style={{ color: appTheme.colors.background }}>
                 {t('entry.catat')}
               </RNText>
             </Pressable>
-          </GlassView>
+          </GlassBox>
         </Stack.Toolbar.View>
       </Stack.Toolbar>
       <ScrollView
         className="bg-[--app-color-background] flex-1"
         contentContainerClassName="px-5 pb-10 pt-5"
         contentInsetAdjustmentBehavior="automatic"
+        refreshControl={
+          <RefreshControl
+            refreshing={sync.status === "syncing"}
+            onRefresh={() => void sync.syncNow()}
+            tintColor={appTheme.colors.primary}
+            colors={[appTheme.colors.primary]}
+            progressBackgroundColor={appTheme.colors.background}
+          />
+        }
       >
         <CashflowStatsCard stats={stats} managementName={activeManagement?.name} />
         <ActivityHeatmap activity={activity} selectedDate={effectiveSelectedDate} onDateSelect={setSelectedDate} />

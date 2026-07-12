@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
-import { Alert, Modal, Pressable, ScrollView, TextInput, View } from "react-native";
+import { Alert, Modal, Pressable, ScrollView, View } from "react-native";
 import ExpoDateTimePicker from "@expo/ui/community/datetime-picker";
 import { router, Stack } from "expo-router";
 import { SymbolView, type SFSymbol } from "expo-symbols";
 import { useTranslation } from "react-i18next";
 import { AppText as Text } from "@/components/AppText";
 import { useAppTheme } from "@/components/AppTheme";
+import { CashflowAmountInput } from "@/components/cashflow/AmountEntryControls";
 import { useCurrency } from "@/components/CurrencyProvider";
 import { useCashflowData } from "@/data/cashflow/CashflowDataProvider";
 import type { CashflowManagement } from "@/data/cashflow/types";
@@ -23,10 +24,6 @@ function getDateDaysAgo(daysAgo: number) {
   date.setHours(12, 0, 0, 0);
   date.setDate(date.getDate() - daysAgo);
   return date;
-}
-
-function formatAmountDigits(value: string) {
-  return value.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 }
 
 function WalletChoice({ wallet, selected, disabled, onPress }: { wallet: CashflowManagement; selected: boolean; disabled?: boolean; onPress: () => void }) {
@@ -231,19 +228,7 @@ export default function TransferFormSheet() {
         contentInsetAdjustmentBehavior="automatic"
         keyboardShouldPersistTaps="handled"
       >
-        <View className="items-center gap-3 py-3">
-          <TextInput
-            className="w-full text-6xl font-bold tracking-tight"
-            inputMode="numeric"
-            keyboardType="number-pad"
-            placeholder={`${currency.option.symbol} 0`}
-            placeholderTextColor={appTheme.colors.muted}
-            selectionColor={appTheme.colors.primary}
-            value={amountText ? `${currency.option.symbol} ${formatAmountDigits(amountText)}` : ""}
-            onChangeText={(text) => setAmountText(text.replace(/\D/g, ""))}
-            style={{ color: appTheme.colors.foreground, height: 78, includeFontPadding: false, paddingVertical: 0, textAlign: "center", textAlignVertical: "center" }}
-          />
-        </View>
+        <CashflowAmountInput amountText={amountText} currencySymbol={currency.option.symbol} onAmountTextChange={setAmountText} />
 
         <Section title={t("transfer.route")} icon="arrow.left.arrow.right.circle.fill">
           <View className="gap-2 rounded-[2rem] border p-2" style={{ backgroundColor: alpha(appTheme.colors.foreground, appTheme.isDark ? 0.035 : 0.025), borderColor: alpha(appTheme.colors.foreground, appTheme.isDark ? 0.09 : 0.07) }}>

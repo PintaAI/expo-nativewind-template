@@ -4,7 +4,7 @@ import { AppText as Text } from "@/components/AppText";
 import { usePathname, type Href, router } from "expo-router";
 import Animated, { useAnimatedStyle, interpolate } from "react-native-reanimated";
 import { useDrawerProgress } from "react-native-drawer-layout";
-import { GlassView } from "expo-glass-effect";
+import { GlassBox } from "@/components/GlassBox";
 import { Image } from "expo-image";
 import { SymbolView, type SFSymbol } from "expo-symbols";
 import { useAuth } from "@/components/AuthProvider";
@@ -173,6 +173,7 @@ export default function Sidebar({ onClose, onOpenProfile, groups: groupsProp }: 
         { label: t('sidebar.categoriesBudget'), icon: "chart.pie.fill" as SFSymbol, route: "/forms/categories" as Href },
         { label: t('sidebar.quickFill'), icon: "bolt.fill" as SFSymbol, route: "/forms/quick-fill" as Href },
         { label: t('sidebar.catatOtomatis'), icon: "repeat.circle.fill" as SFSymbol, route: "/forms/automatic-entry" as Href },
+        { label: t('audit.title'), icon: "checkmark.seal.fill" as SFSymbol, route: "/forms/audit" as Href },
       ],
     },
   ], [t]);
@@ -287,7 +288,7 @@ export default function Sidebar({ onClose, onOpenProfile, groups: groupsProp }: 
         accessibilityRole="button"
         accessibilityLabel={t('sidebar.openProfile')}
       >
-        <GlassView
+        <GlassBox
           isInteractive
           glassEffectStyle="regular"
           style={{
@@ -333,7 +334,7 @@ export default function Sidebar({ onClose, onOpenProfile, groups: groupsProp }: 
 
             <Text className="text-2xl" style={{ color: appTheme.colors.muted }}>›</Text>
           </View>
-        </GlassView>
+        </GlassBox>
       </Pressable>
     </Animated.View>
   );

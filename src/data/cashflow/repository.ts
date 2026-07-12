@@ -103,6 +103,7 @@ const EMPTY_STATS: CashflowStats = {
   totalIncome: 0,
   totalExpenses: 0,
   balance: 0,
+  currentDay: { income: 0, expenses: 0 },
   currentWeek: { weekNumber: 0, range: "", income: 0, expenses: 0 },
   currentMonth: { label: "", income: 0, expenses: 0 },
   topExpenseCategories: [],
@@ -835,12 +836,15 @@ export function buildStats(entries: CashflowEntry[]): CashflowStats {
 
   const now = new Date();
   const monthPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const todayKey = toDateKey(now);
   const week = getWeekStartEnd(now);
   const weekStart = toDateKey(week.start);
   const weekEnd = toDateKey(week.end);
   const categoryTotals = new Map<string, number>();
   let totalIncome = 0;
   let totalExpenses = 0;
+  let dayIncome = 0;
+  let dayExpenses = 0;
   let weekIncome = 0;
   let weekExpenses = 0;
   let monthIncome = 0;
@@ -852,6 +856,11 @@ export function buildStats(entries: CashflowEntry[]): CashflowStats {
     else {
       totalExpenses += entry.nominal;
       if (entry.category) categoryTotals.set(entry.category, (categoryTotals.get(entry.category) ?? 0) + entry.nominal);
+    }
+
+    if (entry.date === todayKey) {
+      if (isIncome) dayIncome += entry.nominal;
+      else dayExpenses += entry.nominal;
     }
 
     if (entry.date >= weekStart && entry.date <= weekEnd) {
@@ -869,6 +878,10 @@ export function buildStats(entries: CashflowEntry[]): CashflowStats {
     totalIncome,
     totalExpenses,
     balance: totalIncome - totalExpenses,
+    currentDay: {
+      income: dayIncome,
+      expenses: dayExpenses,
+    },
     currentWeek: {
       weekNumber: getWeekNumber(now),
       range: `${formatLocalizedDate(week.start, "id-ID", { day: "numeric", month: "short" })} - ${formatLocalizedDate(week.end, "id-ID", { day: "numeric", month: "short" })}`,
