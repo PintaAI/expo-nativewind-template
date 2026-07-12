@@ -9,6 +9,7 @@
     "@react-native-async-storage/async-storage": "2.2.0",
     "better-auth": "^1.6.23",
     "expo": "~56.0.12",
+    "expo-asset": "~56.0.19",
     "expo-audio": "~56.0.12",
     "expo-camera": "~56.0.8",
     "expo-constants": "~56.0.18",

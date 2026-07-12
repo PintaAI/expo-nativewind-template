@@ -1,31 +1,11 @@
-import { useTranslation } from "react-i18next";
 import type { ImageSource } from "expo-image";
-import { View } from "react-native";
-import { Button, Form, Host, Image, Label, LabeledContent, Picker, RNHostView, Section, Text, Toggle } from "@expo/ui/swift-ui";
-import {
-  background,
-  environment,
-  font,
-  frame,
-  hidden,
-  kerning,
-  listRowBackground,
-  listRowInsets,
-  listRowSeparator,
-  onTapGesture,
-  pickerStyle,
-  scrollContentBackground,
-  tag,
-  tint,
-} from "@expo/ui/swift-ui/modifiers";
-import { APP_VERSION } from "@/config/app";
-import { useAppTheme, type ThemeName } from "@/components/AppTheme";
-import { useCurrency } from "@/components/CurrencyProvider";
+import { Pressable, ScrollView, Switch, View } from "react-native";
+import { useTranslation } from "react-i18next";
+import { AppText as Text } from "@/components/AppText";
+import { useAppTheme } from "@/components/AppTheme";
 import { ProfileHeader } from "@/components/profile/ProfileHeader";
+import { APP_VERSION } from "@/config/app";
 import { alpha } from "@/lib/color";
-import { SUPPORTED_CURRENCIES } from "@/lib/currency";
-
-const SETTINGS_ICON_SIZE = 15;
 
 export type ProfileContentBodyProps = {
   isAuthenticated: boolean;
@@ -51,291 +31,87 @@ export type ProfileContentBodyProps = {
   onOpenOnboarding: () => void;
 };
 
-export function ProfileContentBody({
-  isAuthenticated,
-  displayName,
-  email,
-  initials,
-  avatarSource,
-  syncStatus,
-  syncActionLabel,
-  syncDetail,
-  updateStatus,
-  isCheckingForUpdate,
-  isUpdatingPhoto,
-  onSignOut,
-  onSyncNow,
-  onCheckForUpdates,
-  onUpdatePhoto,
-  onOpenPrivacyPolicy,
-  onContactSupport,
-  onOpenAccount,
-  onOpenFontSettings,
-  onOpenAuth,
-  onOpenOnboarding,
-}: ProfileContentBodyProps) {
+export function ProfileContentBody(props: ProfileContentBodyProps) {
   const appTheme = useAppTheme();
-  const { t, i18n } = useTranslation();
-  const { theme, setTheme } = appTheme;
-  const { currency, setCurrency } = useCurrency();
-  const rowBackground = alpha(appTheme.colors.muted, appTheme.isDark ? 0.18 : 0.1);
-  const profileHeaderVerticalPadding = Math.max(16, Math.round(appTheme.textSize * 1.1));
-  const rowModifiers = [listRowBackground(rowBackground)];
+  const { t } = useTranslation();
+  const rowColor = alpha(appTheme.colors.muted, appTheme.isDark ? 0.18 : 0.1);
+
+  const Row = ({ label, detail, onPress, destructive = false }: {
+    label: string;
+    detail?: string;
+    onPress: () => void;
+    destructive?: boolean;
+  }) => (
+    <Pressable
+      accessibilityRole="button"
+      className="min-h-14 flex-row items-center justify-between px-4 py-3"
+      onPress={onPress}
+      style={{ backgroundColor: rowColor }}
+    >
+      <Text className="font-semibold" style={{ color: destructive ? appTheme.colors.negative : appTheme.colors.foreground }}>
+        {label}
+      </Text>
+      {detail ? <Text className="ml-4 flex-1 text-right text-sm" style={{ color: appTheme.colors.muted }}>{detail}</Text> : null}
+    </Pressable>
+  );
+
+  const Section = ({ title, children }: { title: string; children: React.ReactNode }) => (
+    <View className="gap-px">
+      <Text className="mb-2 px-1 text-xs font-bold uppercase tracking-wider" style={{ color: appTheme.colors.muted }}>{title}</Text>
+      <View className="overflow-hidden rounded-2xl">{children}</View>
+    </View>
+  );
 
   return (
-    <View
-      collapsable={false}
+    <ScrollView
       className="flex-1"
+      contentContainerClassName="gap-6 px-5 pb-12 pt-5"
       style={{ backgroundColor: appTheme.colors.background }}
     >
-      <Host
-        useViewportSizeMeasurement
-        style={{ flex: 1, backgroundColor: appTheme.colors.background }}
-        modifiers={[
-          environment("colorScheme", appTheme.resolvedScheme),
-          ...(appTheme.usesSystemTextSettings ? [] : [font({ size: appTheme.textSize }), kerning(appTheme.textSpacing)]),
-        ]}
-      >
-        <Form
-          modifiers={[
-            scrollContentBackground("hidden"),
-            background(appTheme.colors.background),
-          ]}
-        >
-          <Section
-            header={
-              <RNHostView matchContents>
-                <View
-                  className="px-4"
-                  style={{
-                    backgroundColor: appTheme.colors.background,
-                    paddingBottom: Math.max(8, Math.round(appTheme.textSize * 0.55)),
-                    paddingTop: profileHeaderVerticalPadding,
-                  }}
-                >
-                    <ProfileHeader
-                      avatarSource={avatarSource}
-                      initials={initials}
-                      isUpdatingPhoto={isUpdatingPhoto}
-                      onUpdatePhoto={onUpdatePhoto}
-                    />
-                </View>
-              </RNHostView>
-            }
-          >
-            <Text
-              modifiers={[
-                hidden(),
-                frame({ height: 0 }),
-                listRowBackground(rowBackground),
-                listRowInsets({ top: 0, bottom: 0, leading: 0, trailing: 0 }),
-                listRowSeparator("hidden"),
-              ]}
-            />
-          </Section>
+      <ProfileHeader
+        avatarSource={props.avatarSource}
+        initials={props.initials}
+        isUpdatingPhoto={props.isUpdatingPhoto}
+        onUpdatePhoto={props.onUpdatePhoto}
+      />
 
-          <Section title={t("profile.account")}>
-            {isAuthenticated ? (
-              <LabeledContent
-                label={
-                  <Label
-                    title={displayName}
-                    icon={<Image systemName="person.crop.circle" size={SETTINGS_ICON_SIZE} color={appTheme.colors.primary} />}
-                  />
-                }
-                modifiers={[...rowModifiers, onTapGesture(() => onOpenAccount())]}
-              >
-                <Text>{email}</Text>
-              </LabeledContent>
-            ) : null}
-            {!isAuthenticated ? (
-              <Button
-                onPress={() => onOpenAuth()}
-                modifiers={[...rowModifiers, tint(appTheme.colors.primary)]}
-              >
-                <Label
-                  title={t("common.signIn")}
-                  icon={<Image systemName="person.badge.key" size={SETTINGS_ICON_SIZE} color={appTheme.colors.primary} />}
-                />
-              </Button>
-            ) : null}
-            {isAuthenticated ? (
-              <LabeledContent
-                label={
-                  <Label
-                    title={syncActionLabel}
-                    icon={<Image systemName="arrow.triangle.2.circlepath" size={SETTINGS_ICON_SIZE} color={syncStatus === "error" ? appTheme.colors.negative : appTheme.colors.primary} />}
-                  />
-                }
-                modifiers={[
-                  ...rowModifiers,
-                  tint(syncStatus === "error" ? appTheme.colors.negative : appTheme.colors.primary),
-                  ...(syncStatus === "syncing" ? [] : [onTapGesture(() => onSyncNow())]),
-                ]}
-              >
-                <Text>{syncDetail}</Text>
-              </LabeledContent>
-            ) : null}
-            {isAuthenticated ? (
-              <Button
-                onPress={onSignOut}
-                modifiers={[...rowModifiers, tint(appTheme.colors.negative)]}
-              >
-                <Label
-                  title={t("common.signOut")}
-                  icon={<Image systemName="rectangle.portrait.and.arrow.right" size={SETTINGS_ICON_SIZE} color={appTheme.colors.negative} />}
-                />
-              </Button>
-            ) : null}
-          </Section>
+      <Section title={t("profile.account")}>
+        {props.isAuthenticated ? (
+          <>
+            <Row label={props.displayName} detail={props.email} onPress={props.onOpenAccount} />
+            <Row label={props.syncActionLabel} detail={props.syncDetail} onPress={props.onSyncNow} />
+            <Row label={t("common.signOut")} onPress={props.onSignOut} destructive />
+          </>
+        ) : <Row label={t("common.signIn")} onPress={props.onOpenAuth} />}
+      </Section>
 
-          <Section title={t("profile.appearance")}>
-            <Toggle
-              isOn={appTheme.isDark}
-              onIsOnChange={(value: boolean) => appTheme.setColorScheme(value ? "dark" : "light")}
-              modifiers={[...rowModifiers, tint(appTheme.colors.primary)]}
-            >
-              <Label
-                title={t("profile.darkMode")}
-                icon={<Image systemName="moon" size={SETTINGS_ICON_SIZE} color={appTheme.colors.primary} />}
-              />
-            </Toggle>
-            <Picker
-              label={
-                <Label
-                  title={t("profile.accentColor")}
-                  icon={<Image systemName="paintpalette" size={SETTINGS_ICON_SIZE} color={appTheme.colors.primary} />}
-                />
-              }
-              selection={theme}
-              onSelectionChange={(value) => setTheme(value as ThemeName)}
-              modifiers={[...rowModifiers, pickerStyle("menu"), tint(appTheme.colors.primary)]}
-            >
-              {appTheme.availableThemes.map((option) => (
-                <Text key={option.slug} modifiers={[tag(option.slug)]}>
-                  {option.name}
-                </Text>
-              ))}
-            </Picker>
-            <LabeledContent
-              label={
-                <Label
-                  title="Font"
-                  icon={<Image systemName="textformat.size" size={SETTINGS_ICON_SIZE} />}
-                />
-              }
-              modifiers={[...rowModifiers, onTapGesture(() => onOpenFontSettings())]}
-            >
-              <Text />
-            </LabeledContent>
-          </Section>
+      <Section title={t("profile.appearance")}>
+        <View className="min-h-14 flex-row items-center justify-between px-4" style={{ backgroundColor: rowColor }}>
+          <Text className="font-semibold" style={{ color: appTheme.colors.foreground }}>{t("profile.darkMode")}</Text>
+          <Switch
+            value={appTheme.isDark}
+            onValueChange={(value) => appTheme.setColorScheme(value ? "dark" : "light")}
+            trackColor={{ true: appTheme.colors.primary }}
+          />
+        </View>
+        <Row label="Font" onPress={props.onOpenFontSettings} />
+      </Section>
 
-          <Section title={t("profile.app")}>
-            <Picker
-              label={
-                <Label
-                  title={t("profile.currency")}
-                  icon={<Image systemName="dollarsign.circle" size={SETTINGS_ICON_SIZE} color={appTheme.colors.primary} />}
-                />
-              }
-              selection={currency}
-              onSelectionChange={(value) => setCurrency(String(value))}
-              modifiers={[...rowModifiers, pickerStyle("menu"), tint(appTheme.colors.primary)]}
-            >
-              {SUPPORTED_CURRENCIES.map((option) => (
-                <Text key={option.code} modifiers={[tag(option.code)]}>
-                  {`${option.flag} ${option.code}`}
-                </Text>
-              ))}
-            </Picker>
-            <Picker
-              label={
-                <Label
-                  title={t("language.label")}
-                  icon={<Image systemName="globe" size={SETTINGS_ICON_SIZE} color={appTheme.colors.primary} />}
-                />
-              }
-              selection={i18n.resolvedLanguage || "en"}
-              onSelectionChange={(value) => i18n.changeLanguage(String(value))}
-              modifiers={[...rowModifiers, pickerStyle("menu"), tint(appTheme.colors.primary)]}
-            >
-              <Text modifiers={[tag("en")]}>{t("language.english")}</Text>
-              <Text modifiers={[tag("id")]}>{t("language.indonesia")}</Text>
-            </Picker>
-          </Section>
+      <Section title={t("profile.updates")}>
+        <Row
+          label={props.isCheckingForUpdate ? t("profile.checkingForUpdates") : t("profile.checkForUpdates")}
+          detail={props.updateStatus}
+          onPress={props.onCheckForUpdates}
+        />
+        <Row label={t("profile.appVersion", { version: APP_VERSION })} onPress={() => {}} />
+      </Section>
 
-          {__DEV__ ? (
-            <Section title={t("profile.development")}>
-              <Button
-                onPress={() => onOpenOnboarding()}
-                modifiers={[...rowModifiers, tint(appTheme.colors.primary)]}
-              >
-                <Label
-                  title={t("profile.openOnboarding")}
-                  icon={<Image systemName="hand.wave" size={SETTINGS_ICON_SIZE} color={appTheme.colors.primary} />}
-                />
-              </Button>
-            </Section>
-          ) : null}
+      <Section title={t("profile.support")}>
+        <Row label={t("profile.privacyPolicy")} onPress={props.onOpenPrivacyPolicy} />
+        <Row label={t("profile.contactSupport")} onPress={props.onContactSupport} />
+      </Section>
 
-          <Section title={t("profile.updates")}>
-            <LabeledContent
-              label={
-                <Label
-                  title={isCheckingForUpdate ? t("profile.checkingForUpdates") : t("profile.checkForUpdates")}
-                  icon={<Image systemName="arrow.clockwise.circle" size={SETTINGS_ICON_SIZE} color={appTheme.colors.primary} />}
-                />
-              }
-              modifiers={[
-                ...rowModifiers,
-                tint(appTheme.colors.primary),
-                ...(isCheckingForUpdate ? [] : [onTapGesture(() => onCheckForUpdates())]),
-              ]}
-            >
-              <Text>{updateStatus}</Text>
-            </LabeledContent>
-            <LabeledContent
-              label={
-                <Label
-                  title={t("profile.appVersion", { version: APP_VERSION })}
-                  icon={<Image systemName="info.circle" size={SETTINGS_ICON_SIZE} color={appTheme.colors.primary} />}
-                />
-              }
-              modifiers={rowModifiers}
-            >
-              <Text>{APP_VERSION}</Text>
-            </LabeledContent>
-          </Section>
-
-          <Section title={t("profile.getHelp")}>
-            <Button
-              onPress={() => onOpenPrivacyPolicy ? void onOpenPrivacyPolicy() : undefined}
-              modifiers={[...rowModifiers, tint(appTheme.colors.primary)]}
-            >
-              <Label
-                title={t("profile.privacyPolicy")}
-                icon={<Image systemName="hand.raised" size={SETTINGS_ICON_SIZE} color={appTheme.colors.primary} />}
-              />
-            </Button>
-            <Button
-              onPress={() => onContactSupport ? void onContactSupport() : undefined}
-              modifiers={[...rowModifiers, tint(appTheme.colors.primary)]}
-            >
-              <Label
-                title={t("profile.contactSupport")}
-                icon={
-                  <Image
-                    systemName="bubble.left.and.bubble.right"
-                    size={SETTINGS_ICON_SIZE}
-                    color={appTheme.colors.primary}
-                  />
-                }
-              />
-            </Button>
-          </Section>
-        </Form>
-      </Host>
-
-    </View>
+      {__DEV__ ? <Row label={t("profile.openOnboarding")} onPress={props.onOpenOnboarding} /> : null}
+    </ScrollView>
   );
 }
