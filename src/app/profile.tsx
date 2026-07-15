@@ -1,5 +1,6 @@
 import { View } from "react-native";
 import { router, Stack } from "expo-router";
+import { toolbarIcons } from "@/config/toolbarIcons";
 import { useAppTheme } from "@/components/AppTheme";
 import { ProfileContent } from "@/components/profile/ProfileContent";
 
@@ -17,7 +18,7 @@ export default function Profile() {
         }}
       />
       <Stack.Toolbar placement="left">
-        <Stack.Toolbar.Button icon="xmark" tintColor={appTheme.colors.foreground} onPress={() => router.back()} />
+        <Stack.Toolbar.Button icon={toolbarIcons.close} accessibilityLabel="Close" tintColor={appTheme.colors.foreground} onPress={() => router.back()} />
       </Stack.Toolbar>
       <ProfileContent />
     </View>

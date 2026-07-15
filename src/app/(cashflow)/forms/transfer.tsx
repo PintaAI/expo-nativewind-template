@@ -1,10 +1,13 @@
 import { useEffect, useState } from "react";
-import { Alert, Modal, Pressable, ScrollView, View } from "react-native";
+import { Alert, Modal, Platform, Pressable, ScrollView, View } from "react-native";
 import ExpoDateTimePicker from "@expo/ui/community/datetime-picker";
 import { router, Stack } from "expo-router";
-import { SymbolView, type SFSymbol } from "expo-symbols";
+import { toolbarIcons } from "@/config/toolbarIcons";
+import { type SFSymbol } from "expo-symbols";
+import { AppSymbol } from "@/components/AppSymbol";
 import { useTranslation } from "react-i18next";
 import { AppText as Text } from "@/components/AppText";
+import { AndroidFormFooter, AndroidFormFooterButton } from "@/components/AndroidFormFooter";
 import { useAppTheme } from "@/components/AppTheme";
 import { CashflowAmountInput } from "@/components/cashflow/AmountEntryControls";
 import { useCurrency } from "@/components/CurrencyProvider";
@@ -44,13 +47,13 @@ function WalletChoice({ wallet, selected, disabled, onPress }: { wallet: Cashflo
       }}
     >
       <View className="h-9 w-9 items-center justify-center rounded-2xl" style={{ backgroundColor: alpha(tint, 0.14) }}>
-        <SymbolView name="wallet.pass.fill" size={16} tintColor={tint} fallback={<Text style={{ color: tint }}>•</Text>} />
+        <AppSymbol name="wallet.pass.fill" size={16} tintColor={tint} fallback={<Text style={{ color: tint }}>•</Text>} />
       </View>
       <View className="min-w-0 flex-1">
         <Text numberOfLines={1} className="text-sm font-bold" style={{ color: appTheme.colors.foreground }}>{wallet.name}</Text>
         <Text className="text-xs" style={{ color: appTheme.colors.muted }}>{currency.format(wallet.balance, { compact: true })}</Text>
       </View>
-      {selected ? <SymbolView name="checkmark.circle.fill" size={19} tintColor={tint} fallback={<Text style={{ color: tint }}>✓</Text>} /> : null}
+      {selected ? <AppSymbol name="checkmark.circle.fill" size={19} tintColor={tint} fallback={<Text style={{ color: tint }}>✓</Text>} /> : null}
     </Pressable>
   );
 }
@@ -67,7 +70,7 @@ function WalletRow({ label, wallet, afterBalance, active, activeLabel, changeLab
       style={{ backgroundColor: alpha(appTheme.colors.foreground, appTheme.isDark ? 0.045 : 0.035) }}
     >
       <View className="h-10 w-10 items-center justify-center rounded-2xl" style={{ backgroundColor: alpha(active ? appTheme.colors.primary : appTheme.colors.muted, 0.14) }}>
-        <SymbolView name="wallet.pass.fill" size={17} tintColor={active ? appTheme.colors.primary : appTheme.colors.muted} fallback={<Text style={{ color: appTheme.colors.muted }}>•</Text>} />
+        <AppSymbol name="wallet.pass.fill" size={17} tintColor={active ? appTheme.colors.primary : appTheme.colors.muted} fallback={<Text style={{ color: appTheme.colors.muted }}>•</Text>} />
       </View>
       <View className="min-w-0 flex-1">
         <View className="flex-row items-center gap-2">
@@ -115,7 +118,7 @@ function Section({ title, icon, children }: { title: string; icon: SFSymbol; chi
   return (
     <View className="gap-3">
       <View className="flex-row items-center gap-2 px-1">
-        <SymbolView name={icon} size={14} tintColor={appTheme.colors.muted} fallback={<Text style={{ color: appTheme.colors.muted }}>•</Text>} />
+        <AppSymbol name={icon} size={14} tintColor={appTheme.colors.muted} fallback={<Text style={{ color: appTheme.colors.muted }}>•</Text>} />
         <Text className="text-xs font-semibold uppercase tracking-wide" style={{ color: appTheme.colors.muted }}>
           {title}
         </Text>
@@ -212,21 +215,38 @@ export default function TransferFormSheet() {
 
   return (
     <>
-      <Stack.Screen options={{ title: t("sidebar.transfer") }} />
-      <Stack.Toolbar placement="left">
-        <Stack.Toolbar.Button icon="xmark" onPress={() => router.back()} />
-      </Stack.Toolbar>
-      <Stack.Toolbar placement="right">
-        <Stack.Toolbar.Button icon="checkmark" disabled={!canSubmit} onPress={handleSave} variant="done">
-          {t("sidebar.transfer")}
-        </Stack.Toolbar.Button>
-      </Stack.Toolbar>
+      <Stack.Screen
+        options={{
+          title: t("sidebar.transfer"),
+          unstable_sheetFooter: Platform.OS === "android"
+            ? () => (
+                <AndroidFormFooter>
+                  <AndroidFormFooterButton label={t("common.close")} onPress={() => router.back()} />
+                  <AndroidFormFooterButton label={t("sidebar.transfer")} onPress={handleSave} primary disabled={!canSubmit} />
+                </AndroidFormFooter>
+              )
+            : undefined,
+        }}
+      />
+      {Platform.OS === "ios" ? (
+        <>
+          <Stack.Toolbar placement="left">
+            <Stack.Toolbar.Button icon={toolbarIcons.close} accessibilityLabel="Close" onPress={() => router.back()} />
+          </Stack.Toolbar>
+          <Stack.Toolbar placement="right">
+            <Stack.Toolbar.Button icon={toolbarIcons.check} disabled={!canSubmit} onPress={handleSave} variant="done">
+              {t("sidebar.transfer")}
+            </Stack.Toolbar.Button>
+          </Stack.Toolbar>
+        </>
+      ) : null}
 
       <ScrollView
         className="flex-1 bg-[--app-color-background]"
         contentContainerClassName="gap-5 px-5 pb-10 pt-5"
         contentInsetAdjustmentBehavior="automatic"
         keyboardShouldPersistTaps="handled"
+        nestedScrollEnabled={Platform.OS === "android"}
       >
         <CashflowAmountInput amountText={amountText} currencySymbol={currency.option.symbol} onAmountTextChange={setAmountText} />
 
@@ -244,7 +264,7 @@ export default function TransferFormSheet() {
                 className="h-9 w-9 items-center justify-center rounded-full"
                 style={{ backgroundColor: alpha(appTheme.colors.primary, 0.12), opacity: !fromManagementId || !toManagementId ? 0.45 : 1 }}
               >
-                <SymbolView name="arrow.up.arrow.down" size={17} tintColor={appTheme.colors.primary} fallback={<Text style={{ color: appTheme.colors.primary }}>⇅</Text>} />
+                <AppSymbol name="arrow.up.arrow.down" size={17} tintColor={appTheme.colors.primary} fallback={<Text style={{ color: appTheme.colors.primary }}>⇅</Text>} />
               </Pressable>
               <View className="h-px flex-1" style={{ backgroundColor: alpha(appTheme.colors.foreground, appTheme.isDark ? 0.09 : 0.08) }} />
             </View>

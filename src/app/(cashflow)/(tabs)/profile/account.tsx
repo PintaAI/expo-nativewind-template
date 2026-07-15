@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { Alert, Modal, Pressable, ScrollView, TextInput, View } from "react-native";
+import { Alert, Modal, Platform, Pressable, ScrollView, TextInput, View } from "react-native";
 import { router, Stack } from "expo-router";
 import { useSQLiteContext } from "expo-sqlite";
-import { SymbolView, type SFSymbol } from "expo-symbols";
+import type { SFSymbol } from "expo-symbols";
+import { AppSymbol } from "@/components/AppSymbol";
 import { useTranslation } from "react-i18next";
 import { AppText as Text } from "@/components/AppText";
 import { useAppTheme } from "@/components/AppTheme";
@@ -14,7 +15,7 @@ import { alpha } from "@/lib/color";
 import { clearPreferences } from "@/lib/preferences";
 
 function FormSymbol({ name, color, size = 16 }: { name: SFSymbol; color: string; size?: number }) {
-  return <SymbolView name={name} size={size} tintColor={color} fallback={<Text style={{ color }}>•</Text>} />;
+  return <AppSymbol name={name} size={size} tintColor={color} fallback={<Text style={{ color }}>•</Text>} />;
 }
 
 export default function ProfileAccountScreen() {
@@ -67,6 +68,7 @@ export default function ProfileAccountScreen() {
         contentContainerClassName="gap-4 px-4 pb-12 pt-4"
         contentInsetAdjustmentBehavior="automatic"
         keyboardShouldPersistTaps="handled"
+        nestedScrollEnabled={Platform.OS === "android"}
       >
         <View className="gap-3 rounded-3xl border p-4" style={{ borderColor, backgroundColor: surface }}>
           <Text className="text-sm font-semibold uppercase tracking-widest" style={{ color: appTheme.colors.muted }}>

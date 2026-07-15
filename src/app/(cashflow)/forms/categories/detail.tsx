@@ -1,9 +1,12 @@
 import { useState } from "react";
-import { Alert, Pressable, ScrollView, TextInput, View } from "react-native";
+import { Alert, Platform, Pressable, ScrollView, TextInput, View } from "react-native";
 import { router, Stack, useLocalSearchParams } from "expo-router";
-import { SymbolView, type SFSymbol } from "expo-symbols";
+import { toolbarIcons } from "@/config/toolbarIcons";
+import { type SFSymbol } from "expo-symbols";
+import { AppSymbol } from "@/components/AppSymbol";
 import { useTranslation } from "react-i18next";
 import { AppText as Text } from "@/components/AppText";
+import { AndroidFormFooter, AndroidFormFooterButton } from "@/components/AndroidFormFooter";
 import { useAppTheme } from "@/components/AppTheme";
 import { BudgetField } from "@/components/cashflow/CategoryBudgetField";
 import { IconSelector } from "@/components/IconSelector";
@@ -79,18 +82,31 @@ export default function CategoryDetailScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title: isNewCategory ? t("categories.newCategory") : category?.name }} />
-      <Stack.Toolbar placement="right">
-        <Stack.Toolbar.Button icon="checkmark" onPress={handleSave} variant="done">
-          {t("common.save")}
-        </Stack.Toolbar.Button>
-      </Stack.Toolbar>
+      <Stack.Screen
+        options={{
+          title: isNewCategory ? t("categories.newCategory") : category?.name,
+          unstable_sheetFooter: Platform.OS === "android"
+            ? () => (
+                <AndroidFormFooter>
+                  <AndroidFormFooterButton label={t("common.save")} onPress={handleSave} primary />
+                </AndroidFormFooter>
+              )
+            : undefined,
+        }}
+      />
+      {Platform.OS === "ios" ? (
+        <Stack.Toolbar placement="right">
+          <Stack.Toolbar.Button icon={toolbarIcons.check} onPress={handleSave} variant="done">
+            {t("common.save")}
+          </Stack.Toolbar.Button>
+        </Stack.Toolbar>
+      ) : null}
 
-      <ScrollView className="flex-1 bg-[--app-color-background]" contentContainerClassName="gap-4 px-4 pb-12 pt-4" contentInsetAdjustmentBehavior="automatic" keyboardShouldPersistTaps="handled">
+      <ScrollView className="flex-1 bg-[--app-color-background]" contentContainerClassName="gap-4 px-4 pb-12 pt-4" contentInsetAdjustmentBehavior="automatic" keyboardShouldPersistTaps="handled" nestedScrollEnabled={Platform.OS === "android"}>
         <View className="gap-4 rounded-[32px] border p-4" style={{ borderColor, backgroundColor: surface }}>
           <View className="flex-row items-center gap-4">
             <View className="h-24 w-24 items-center justify-center rounded-[30px]" style={{ backgroundColor: alpha(color, 0.16) }}>
-              <SymbolView name={icon} size={38} tintColor={color} fallback={<Text style={{ color }}>•</Text>} />
+              <AppSymbol name={icon} size={38} tintColor={color} fallback={<Text style={{ color }}>•</Text>} />
             </View>
             <View className="min-w-0 flex-1 gap-2">
               <Text className="text-xs font-semibold uppercase tracking-[2px]" style={{ color: appTheme.colors.muted }}>
@@ -118,7 +134,7 @@ export default function CategoryDetailScreen() {
               const selected = color === option;
               return (
                 <Pressable key={option} accessibilityRole="button" accessibilityState={{ selected }} onPress={() => setColor(option)} className="h-11 w-11 items-center justify-center rounded-full border" style={{ backgroundColor: option, borderColor: selected ? appTheme.colors.foreground : "transparent" }}>
-                  {selected ? <SymbolView name="checkmark" size={14} tintColor="#fff" fallback={<Text style={{ color: "#fff" }}>✓</Text>} /> : null}
+                  {selected ? <AppSymbol name="checkmark" size={14} tintColor="#fff" fallback={<Text style={{ color: "#fff" }}>✓</Text>} /> : null}
                 </Pressable>
               );
             })}

@@ -1,5 +1,6 @@
 import { Pressable, View } from "react-native";
-import { SymbolView, type SFSymbol } from "expo-symbols";
+import type { SFSymbol } from "expo-symbols";
+import { AppSymbol } from "@/components/AppSymbol";
 import { AppText as Text } from "@/components/AppText";
 import { useAppTheme } from "@/components/AppTheme";
 import { alpha } from "@/lib/color";
@@ -31,7 +32,7 @@ export function IconSelector({ options, value, onChange, tintColor }: IconSelect
             className="h-11 w-11 items-center justify-center rounded-2xl border"
             style={{ backgroundColor: selected ? alpha(activeColor, 0.18) : appTheme.colors.background, borderColor: selected ? activeColor : borderColor }}
           >
-            <SymbolView name={option} size={18} tintColor={iconColor} fallback={<Text style={{ color: iconColor }}>•</Text>} />
+            <AppSymbol name={option} size={18} tintColor={iconColor} fallback={<Text style={{ color: iconColor }}>•</Text>} />
           </Pressable>
         );
       })}

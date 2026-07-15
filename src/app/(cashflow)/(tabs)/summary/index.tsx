@@ -1,6 +1,7 @@
 import { router, Stack } from "expo-router";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { toolbarIcons } from "@/config/toolbarIcons";
 import { useDrawer } from "@/components/DrawerContext";
 import { AnalyticsCharts, DATE_PRESETS, type DatePeriod } from "@/components/cashflow/AnalyticsCharts";
 import { CashflowStatsCard } from "@/components/cashflow/CashflowStatsCard";
@@ -31,7 +32,8 @@ export default function SummaryScreen() {
       <Stack.Screen options={{ title: t('tabs.summary') }} />
       <Stack.Toolbar placement="left">
         <Stack.Toolbar.Button
-          icon="sidebar.left"
+          icon={toolbarIcons.menu}
+          accessibilityLabel="Open menu"
           onPress={open}
         />
       </Stack.Toolbar>

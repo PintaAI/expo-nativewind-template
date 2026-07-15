@@ -1,10 +1,11 @@
 import { Stack } from "expo-router";
+import { Platform } from "react-native";
 
 export default function SummaryLayout() {
   return (
     <Stack
       screenOptions={{
-        headerTransparent: true,
+        headerTransparent: Platform.OS === "ios",
       }}
     />
   );

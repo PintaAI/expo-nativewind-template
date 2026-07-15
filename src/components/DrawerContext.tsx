@@ -62,6 +62,7 @@ export function DrawerProvider({ children }: { children: ReactNode }) {
               borderTopLeftRadius: screenCornerRadius,
               borderBottomLeftRadius: screenCornerRadius,
             }}
+            renderToHardwareTextureAndroid={drawerOpen}
           >
             {children}
           </View>

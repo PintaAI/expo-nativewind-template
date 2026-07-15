@@ -107,7 +107,7 @@ export function ProfileContent() {
   const handleSignOut = async () => {
     try {
       await clearCashflowDatabase(db);
-      await clearPreferences();
+      await clearPreferences({ preserveOnboarding: true });
       await cashflowData.refresh();
     } catch (error) {
       console.warn("Failed to clear local data on sign out", error);

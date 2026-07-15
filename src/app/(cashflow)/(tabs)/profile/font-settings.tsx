@@ -1,17 +1,93 @@
 import { useEffect, useRef, useState } from "react";
-import { View } from "react-native";
+import { Platform, Pressable, View } from "react-native";
 import { Stack } from "expo-router";
 import { useTranslation } from "react-i18next";
-import { Button, Host, Image, Label, Slider, VStack } from "@expo/ui/swift-ui";
-import {
-  environment,
-  font,
-  frame,
-  kerning,
-  padding,
-  tint,
-} from "@expo/ui/swift-ui/modifiers";
+import { AppText as Text } from "@/components/AppText";
 import { useAppTheme } from "@/components/AppTheme";
+
+function StepperSlider({
+  label,
+  value,
+  min,
+  max,
+  step,
+  onValueChange,
+  formatValue,
+}: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  onValueChange: (value: number) => void;
+  formatValue?: (value: number) => string;
+}) {
+  const appTheme = useAppTheme();
+  const surface = appTheme.isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.04)";
+  const borderColor = appTheme.isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)";
+
+  const decrement = () => {
+    const next = Math.max(min, value - step);
+    onValueChange(Number(next.toFixed(2)));
+  };
+
+  const increment = () => {
+    const next = Math.min(max, value + step);
+    onValueChange(Number(next.toFixed(2)));
+  };
+
+  const display = formatValue ? formatValue(value) : String(value);
+
+  return (
+    <View className="gap-2">
+      <Text className="text-sm font-semibold" style={{ color: appTheme.colors.muted }}>
+        {label}
+      </Text>
+      <View className="flex-row items-center gap-3">
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Decrease ${label}`}
+          disabled={value <= min}
+          onPress={decrement}
+          className="h-10 w-10 items-center justify-center rounded-xl border"
+          style={{
+            backgroundColor: surface,
+            borderColor,
+            opacity: value <= min ? 0.35 : 1,
+          }}
+        >
+          <Text className="text-lg font-bold" style={{ color: appTheme.colors.primary }}>
+            -
+          </Text>
+        </Pressable>
+        <View
+          className="h-10 flex-1 items-center justify-center rounded-xl border"
+          style={{ backgroundColor: surface, borderColor }}
+        >
+          <Text className="text-base font-semibold" style={{ color: appTheme.colors.foreground }}>
+            {display}
+          </Text>
+        </View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Increase ${label}`}
+          disabled={value >= max}
+          onPress={increment}
+          className="h-10 w-10 items-center justify-center rounded-xl border"
+          style={{
+            backgroundColor: surface,
+            borderColor,
+            opacity: value >= max ? 0.35 : 1,
+          }}
+        >
+          <Text className="text-lg font-bold" style={{ color: appTheme.colors.primary }}>
+            +
+          </Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
 
 export default function FontSettingsScreen() {
   const appTheme = useAppTheme();
@@ -41,18 +117,6 @@ export default function FontSettingsScreen() {
     setDraftTextSpacing(value);
   };
 
-  const commitDraftTextSize = (isEditing: boolean) => {
-    if (!isEditing) {
-      appTheme.setTextSize(draftTextSizeRef.current);
-    }
-  };
-
-  const commitDraftTextSpacing = (isEditing: boolean) => {
-    if (!isEditing) {
-      appTheme.setTextSpacing(draftTextSpacingRef.current);
-    }
-  };
-
   const onReset = () => {
     appTheme.resetTextSettings();
     queueMicrotask(() => {
@@ -61,59 +125,52 @@ export default function FontSettingsScreen() {
     });
   };
 
+  const surface = appTheme.isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.04)";
+  const borderColor = appTheme.isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)";
+
   return (
-    <View collapsable={false} style={{ width: "100%" }}>
+    <View
+      collapsable={false}
+      className={Platform.OS === "android" ? "px-5 pb-4 pt-4" : "flex-1 px-5 pt-4"}
+      style={{ backgroundColor: appTheme.colors.background }}
+    >
       <Stack.Title>{t("profile.fontSettings")}</Stack.Title>
-      <Host
-        matchContents={{ vertical: true }}
-        style={{ width: "100%" }}
-        modifiers={[
-          environment("colorScheme", appTheme.resolvedScheme),
-          ...(appTheme.usesSystemTextSettings ? [] : [font({ size: appTheme.textSize }), kerning(appTheme.textSpacing)]),
-        ]}
-      >
-        <VStack
-          alignment="leading"
-          spacing={12}
-          modifiers={[padding({ top: 20, bottom: 26, horizontal: 20 })]}
+      <View className="gap-6">
+        <StepperSlider
+          label={t("profile.textSize")}
+          value={draftTextSize}
+          min={14}
+          max={22}
+          step={1}
+          onValueChange={(val) => {
+            updateDraftTextSize(val);
+            appTheme.setTextSize(val);
+          }}
+          formatValue={(v) => `${v} pt`}
+        />
+        <StepperSlider
+          label={t("profile.textSpacing")}
+          value={draftTextSpacing}
+          min={-0.5}
+          max={1.5}
+          step={0.25}
+          onValueChange={(val) => {
+            updateDraftTextSpacing(val);
+            appTheme.setTextSpacing(val);
+          }}
+          formatValue={(v) => (v >= 0 ? `+${v.toFixed(2)}` : v.toFixed(2))}
+        />
+        <Pressable
+          accessibilityRole="button"
+          onPress={onReset}
+          className="items-center rounded-2xl border px-6 py-3.5"
+          style={{ backgroundColor: surface, borderColor }}
         >
-          <Label
-            title={t("profile.textSize")}
-            icon={<Image systemName="textformat.size" size={15} color={appTheme.colors.primary} />}
-          />
-          <Slider
-            value={draftTextSize}
-            min={14}
-            max={22}
-            step={1}
-            onValueChange={updateDraftTextSize}
-            onEditingChanged={commitDraftTextSize}
-            modifiers={[frame({ height: 32 }), tint(appTheme.colors.primary)]}
-          />
-          <Label
-            title={t("profile.textSpacing")}
-            icon={<Image systemName="text.alignleft" size={15} color={appTheme.colors.primary} />}
-          />
-          <Slider
-            value={draftTextSpacing}
-            min={-0.5}
-            max={1.5}
-            step={0.25}
-            onValueChange={updateDraftTextSpacing}
-            onEditingChanged={commitDraftTextSpacing}
-            modifiers={[frame({ height: 32 }), tint(appTheme.colors.primary)]}
-          />
-          <Button
-            onPress={onReset}
-            modifiers={[padding({ top: 8 }), tint(appTheme.colors.primary)]}
-          >
-            <Label
-              title={t("profile.useSystemTextSettings")}
-              icon={<Image systemName="textformat.size" size={15} color={appTheme.colors.primary} />}
-            />
-          </Button>
-        </VStack>
-      </Host>
+          <Text className="text-base font-semibold" style={{ color: appTheme.colors.primary }}>
+            {t("profile.useSystemTextSettings")}
+          </Text>
+        </Pressable>
+      </View>
     </View>
   );
 }

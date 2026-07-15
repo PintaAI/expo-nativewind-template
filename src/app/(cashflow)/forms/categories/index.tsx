@@ -1,8 +1,11 @@
-import { Pressable, ScrollView, View } from "react-native";
+import { Platform, Pressable, ScrollView, View } from "react-native";
 import { router, Stack, type Href } from "expo-router";
-import { SymbolView, type SFSymbol } from "expo-symbols";
+import { toolbarIcons } from "@/config/toolbarIcons";
+import { type SFSymbol } from "expo-symbols";
+import { AppSymbol } from "@/components/AppSymbol";
 import { useTranslation } from "react-i18next";
 import { AppText as Text } from "@/components/AppText";
+import { AndroidFormFooter, AndroidFormFooterButton } from "@/components/AndroidFormFooter";
 import { useAppTheme } from "@/components/AppTheme";
 import { useCurrency } from "@/components/CurrencyProvider";
 import { BudgetField } from "@/components/cashflow/CategoryBudgetField";
@@ -42,17 +45,33 @@ export default function CategoriesFormSheet() {
 
   return (
     <>
-      <Stack.Screen options={{ title: t("sidebar.categoriesBudget") }} />
-      <Stack.Toolbar placement="left">
-        <Stack.Toolbar.Button icon="xmark" onPress={() => router.back()} />
-      </Stack.Toolbar>
-      <Stack.Toolbar placement="right">
-        <Stack.Toolbar.Button icon="plus" onPress={() => router.push("/forms/categories/detail" as Href)}>
-          {t("categories.newCategory")}
-        </Stack.Toolbar.Button>
-      </Stack.Toolbar>
+      <Stack.Screen
+        options={{
+          title: t("sidebar.categoriesBudget"),
+          unstable_sheetFooter: Platform.OS === "android"
+            ? () => (
+                <AndroidFormFooter>
+                  <AndroidFormFooterButton label={t("common.close")} onPress={() => router.back()} />
+                  <AndroidFormFooterButton label={t("categories.newCategory")} onPress={() => router.push("/forms/categories/detail" as Href)} primary />
+                </AndroidFormFooter>
+              )
+            : undefined,
+        }}
+      />
+      {Platform.OS === "ios" ? (
+        <>
+          <Stack.Toolbar placement="left">
+            <Stack.Toolbar.Button icon={toolbarIcons.close} accessibilityLabel="Close" onPress={() => router.back()} />
+          </Stack.Toolbar>
+          <Stack.Toolbar placement="right">
+            <Stack.Toolbar.Button icon={toolbarIcons.add} onPress={() => router.push("/forms/categories/detail" as Href)}>
+              {t("categories.newCategory")}
+            </Stack.Toolbar.Button>
+          </Stack.Toolbar>
+        </>
+      ) : null}
 
-      <ScrollView className="flex-1 bg-[--app-color-background]" contentContainerClassName="gap-5 px-5 pb-10 pt-5" contentInsetAdjustmentBehavior="automatic" keyboardShouldPersistTaps="handled">
+      <ScrollView className="flex-1 bg-[--app-color-background]" contentContainerClassName="gap-5 px-5 pb-10 pt-5" contentInsetAdjustmentBehavior="automatic" keyboardShouldPersistTaps="handled" nestedScrollEnabled={Platform.OS === "android"}>
         <View className="gap-2">
           <Text className="text-xs font-semibold uppercase tracking-[2px]" style={{ color: appTheme.colors.muted }}>
             {activeManagement?.name ?? "Wallet"}
@@ -68,7 +87,7 @@ export default function CategoriesFormSheet() {
         <View className="gap-4 rounded-3xl border p-4" style={{ borderColor, backgroundColor: surface }}>
           <View className="flex-row items-center gap-3">
             <View className="h-11 w-11 items-center justify-center rounded-2xl" style={{ backgroundColor: alpha(appTheme.colors.primary, 0.14) }}>
-              <SymbolView name="chart.pie.fill" size={20} tintColor={appTheme.colors.primary} fallback={<Text style={{ color: appTheme.colors.primary }}>•</Text>} />
+              <AppSymbol name="chart.pie.fill" size={20} tintColor={appTheme.colors.primary} fallback={<Text style={{ color: appTheme.colors.primary }}>•</Text>} />
             </View>
             <View className="min-w-0 flex-1">
               <Text className="text-base font-bold" style={{ color: appTheme.colors.foreground }}>
@@ -106,7 +125,7 @@ export default function CategoriesFormSheet() {
               >
                 <View className="flex-row items-center gap-3">
                   <View className="h-11 w-11 items-center justify-center rounded-2xl" style={{ backgroundColor: alpha(categoryColor, 0.16) }}>
-                    <SymbolView name={categoryIcon} size={20} tintColor={categoryColor} fallback={<Text style={{ color: categoryColor }}>•</Text>} />
+                    <AppSymbol name={categoryIcon} size={20} tintColor={categoryColor} fallback={<Text style={{ color: categoryColor }}>•</Text>} />
                   </View>
                   <View className="min-w-0 flex-1">
                     <Text numberOfLines={1} className="text-base font-bold" style={{ color: appTheme.colors.foreground }}>
@@ -116,7 +135,7 @@ export default function CategoriesFormSheet() {
                       {t("categories.budgetSummary", { value: budgetSummary(category, format, t("categories.noBudget")) })}
                     </Text>
                   </View>
-                  <SymbolView name="chevron.right" size={15} tintColor={appTheme.colors.muted} fallback={<Text style={{ color: appTheme.colors.muted }}>›</Text>} />
+                  <AppSymbol name="chevron.right" size={15} tintColor={appTheme.colors.muted} fallback={<Text style={{ color: appTheme.colors.muted }}>›</Text>} />
                 </View>
               </Pressable>
             );

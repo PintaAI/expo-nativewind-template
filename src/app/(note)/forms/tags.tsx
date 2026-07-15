@@ -9,6 +9,7 @@ export default function TagsForm() {
       description={t("tags.description")}
       icon="tag.fill"
       fields={[t("tags.fieldName"), t("tags.fieldColor")]}
+      androidFitToContents
     />
   );
 }

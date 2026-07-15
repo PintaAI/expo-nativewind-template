@@ -9,6 +9,7 @@ export default function NotebooksForm() {
       description={t("notebooks.description")}
       icon="book.fill"
       fields={[t("notebooks.fieldName"), t("notebooks.fieldDescription"), t("notebooks.fieldColor")]}
+      androidFitToContents
     />
   );
 }

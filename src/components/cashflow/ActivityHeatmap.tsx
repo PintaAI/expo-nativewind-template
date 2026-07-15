@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, ScrollView, useWindowDimensions, View } from "react-native";
-import { SymbolView } from "expo-symbols";
+import { AppSymbol } from "@/components/AppSymbol";
 import { GlassBox } from "@/components/GlassBox";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { runOnJS } from "react-native-reanimated";
@@ -147,7 +147,7 @@ function ActivityViewTabs({ view, onChange, compact = false }: { view: ActivityV
                 ...(isActive && item === "calendar" ? { borderTopRightRadius: 9999, borderBottomRightRadius: 9999 } : {}),
               }}
             >
-              <SymbolView
+              <AppSymbol
                 name={item === "grid" ? "square.grid.2x2" : "calendar"}
                 size={compact ? 10 : 12}
                 tintColor={isActive ? appTheme.colors.inverseForeground : appTheme.colors.muted}

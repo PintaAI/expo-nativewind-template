@@ -6,7 +6,8 @@ import Animated, { useAnimatedStyle, interpolate } from "react-native-reanimated
 import { useDrawerProgress } from "react-native-drawer-layout";
 import { GlassBox } from "@/components/GlassBox";
 import { Image } from "expo-image";
-import { SymbolView, type SFSymbol } from "expo-symbols";
+import type { SFSymbol } from "expo-symbols";
+import { AppSymbol } from "@/components/AppSymbol";
 import { useAuth } from "@/components/AuthProvider";
 import { useAppTheme } from "@/components/AppTheme";
 import { useTranslation } from "react-i18next";
@@ -103,7 +104,7 @@ function SidebarNavRow({
               backgroundColor: isActive ? "transparent" : surface,
             }}
           >
-            <SymbolView
+            <AppSymbol
               name={item.icon}
               size={iconSize}
               tintColor={appTheme.colors.primary}

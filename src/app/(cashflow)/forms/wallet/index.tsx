@@ -1,10 +1,11 @@
-import { Pressable, ScrollView, View } from "react-native";
+import { Platform, Pressable, ScrollView, View } from "react-native";
 import { GlassBox } from "@/components/GlassBox";
 import { Image } from "expo-image";
 import { router, Stack, type Href } from "expo-router";
-import { SymbolView } from "expo-symbols";
+import { AppSymbol } from "@/components/AppSymbol";
 import { useTranslation } from "react-i18next";
 import { AppText as Text } from "@/components/AppText";
+import { AndroidFormFooter, AndroidFormFooterButton } from "@/components/AndroidFormFooter";
 import { useAppTheme } from "@/components/AppTheme";
 import { useCurrency } from "@/components/CurrencyProvider";
 import { useCashflowData } from "@/data/cashflow/CashflowDataProvider";
@@ -67,31 +68,44 @@ export default function WalletFormSheet() {
 
   return (
     <>
-      <Stack.Screen options={{ title: t("sidebar.wallet") }} />
-      <Stack.Toolbar placement="right">
-        <Stack.Toolbar.View hidesSharedBackground>
-          <GlassBox
-            isInteractive
-            tintColor={alpha(appTheme.colors.primary, appTheme.isDark ? 1 : 0.72)}
-            glassEffectStyle="clear"
-            style={{ borderRadius: 9999 }}
-          >
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t("wallet.addWalletLabel")}
-              className="flex-row items-center gap-1.5 px-5 py-3"
-              onPress={() => router.push("/forms/wallet/detail" as Href)}
+      <Stack.Screen
+        options={{
+          title: t("sidebar.wallet"),
+          unstable_sheetFooter: Platform.OS === "android"
+            ? () => (
+                <AndroidFormFooter>
+                  <AndroidFormFooterButton label={t("wallet.addWalletLabel")} onPress={() => router.push("/forms/wallet/detail" as Href)} primary />
+                </AndroidFormFooter>
+              )
+            : undefined,
+        }}
+      />
+      {Platform.OS === "ios" ? (
+        <Stack.Toolbar placement="right">
+          <Stack.Toolbar.View hidesSharedBackground>
+            <GlassBox
+              isInteractive
+              tintColor={alpha(appTheme.colors.primary, appTheme.isDark ? 1 : 0.72)}
+              glassEffectStyle="clear"
+              style={{ borderRadius: 9999 }}
             >
-              <SymbolView name="plus" size={16} tintColor={appTheme.colors.background} fallback={<Text className="text-base" style={{ color: appTheme.colors.background }}>+</Text>} />
-              <Text className="text-base font-bold" style={{ color: appTheme.colors.background }}>
-                {t("sidebar.wallet")}
-              </Text>
-            </Pressable>
-          </GlassBox>
-        </Stack.Toolbar.View>
-      </Stack.Toolbar>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t("wallet.addWalletLabel")}
+                className="flex-row items-center gap-1.5 px-5 py-3"
+                onPress={() => router.push("/forms/wallet/detail" as Href)}
+              >
+                <AppSymbol name="plus" size={16} tintColor={appTheme.colors.background} fallback={<Text className="text-base" style={{ color: appTheme.colors.background }}>+</Text>} />
+                <Text className="text-base font-bold" style={{ color: appTheme.colors.background }}>
+                  {t("sidebar.wallet")}
+                </Text>
+              </Pressable>
+            </GlassBox>
+          </Stack.Toolbar.View>
+        </Stack.Toolbar>
+      ) : null}
 
-      <ScrollView className="bg-[--app-color-background] flex-1" contentContainerClassName="gap-5 px-5 pb-10 pt-5" contentInsetAdjustmentBehavior="automatic">
+      <ScrollView className="bg-[--app-color-background] flex-1" contentContainerClassName="gap-5 px-5 pb-10 pt-5" contentInsetAdjustmentBehavior="automatic" nestedScrollEnabled={Platform.OS === "android"}>
         <View className="gap-2">
           <Text className="text-xs font-semibold uppercase tracking-[2px]" style={{ color: appTheme.colors.muted }}>
             {t("wallet.dataScope")}
@@ -132,7 +146,7 @@ export default function WalletFormSheet() {
                         style={{ height: "100%", width: "100%" }}
                       />
                     ) : (
-                      <SymbolView name={walletImageToIcon(management.image)} size={20} tintColor={tint} fallback={<Text style={{ color: tint }}>•</Text>} />
+                      <AppSymbol name={walletImageToIcon(management.image)} size={20} tintColor={tint} fallback={<Text style={{ color: tint }}>•</Text>} />
                     )}
                   </View>
                   <View className="min-w-0 flex-1">

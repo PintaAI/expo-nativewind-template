@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Animated, Easing, Pressable, View } from "react-native";
-import { SymbolView, type SFSymbol } from "expo-symbols";
+import { SymbolView, type AndroidSymbol, type SFSymbol } from "expo-symbols";
 import { router } from "expo-router";
 import { useTranslation } from "react-i18next";
 
@@ -62,10 +62,27 @@ export const mockCashflowStats: CashflowStats = {
   ],
 };
 
-function StatSymbol({ name, color }: { name: SFSymbol; color: string }) {
+const statSymbols = {
+  "chevron.down": "expand_more",
+  "chevron.up": "expand_less",
+  "checkmark.seal.fill": "verified",
+  "arrow.down.circle.fill": "arrow_circle_down",
+  "arrow.up.circle.fill": "arrow_circle_up",
+  "eye.fill": "visibility",
+  "eye.slash.fill": "visibility_off",
+  calendar: "calendar_month",
+  "calendar.badge.plus": "event_upcoming",
+  "bag.fill": "shopping_bag",
+} as const satisfies Record<string, AndroidSymbol>;
+
+type StatSymbolName = keyof typeof statSymbols;
+
+function StatSymbol({ name, color }: { name: StatSymbolName; color: string }) {
+  const androidName = statSymbols[name];
+
   return (
     <SymbolView
-      name={name}
+      name={{ ios: name as SFSymbol, android: androidName, web: androidName }}
       size={15}
       tintColor={color}
       fallback={<RNText style={{ color }}>•</RNText>}

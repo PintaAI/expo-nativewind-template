@@ -1,6 +1,6 @@
 import { useRef, useCallback, useMemo, forwardRef, useImperativeHandle } from "react";
 import { Pressable, type ScrollView, View, useWindowDimensions } from "react-native";
-import { SymbolView, type SFSymbol } from "expo-symbols";
+import type { SFSymbol } from "expo-symbols";
 import { useTranslation } from "react-i18next";
 import Animated, {
   interpolate,
@@ -14,6 +14,7 @@ import Animated, {
 } from "react-native-reanimated";
 
 import { AppText as Text } from "@/components/AppText";
+import { AppSymbol } from "@/components/AppSymbol";
 import { useAppTheme } from "@/components/AppTheme";
 import { alpha } from "@/lib/color";
 
@@ -83,7 +84,7 @@ function CategoryChip({
           backgroundColor: isActive ? item.color : alpha(item.color, dark ? 0.14 : 0.09),
         }}
       >
-        <SymbolView
+        <AppSymbol
           name={item.symbol}
           size={20}
           tintColor={isActive ? "#fff" : item.color}
@@ -134,7 +135,7 @@ function AddCategoryChip({
           backgroundColor: alpha(primaryColor, dark ? 0.13 : 0.08),
         }}
       >
-        <SymbolView
+        <AppSymbol
           name="plus"
           size={20}
           tintColor={primaryColor}

@@ -10,6 +10,7 @@ export default function StatieFormSheet() {
       icon="gamecontroller.fill"
       fields={[t("statie.fieldPlayer"), t("statie.fieldMode"), t("statie.fieldDifficulty")]}
       actions={[t("common.close"), t("common.start")]}
+      androidFitToContents
     />
   );
 }

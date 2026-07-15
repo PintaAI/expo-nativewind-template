@@ -2,7 +2,7 @@
   "expo": {
     "name": "ethos",
     "slug": "ethos",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/images/ios-icon-default.png",
     "scheme": "ethos",
@@ -105,7 +105,15 @@
       ],
       "expo-audio",
       "expo-localization",
-      "expo-asset"
+      "expo-asset",
+      [
+        "expo-notifications",
+        {
+          "color": "#208AEF",
+          "defaultChannel": "default"
+        }
+      ],
+      "expo-background-task"
     ],
     "experiments": {
       "typedRoutes": true,

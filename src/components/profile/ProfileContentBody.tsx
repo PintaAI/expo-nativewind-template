@@ -1,11 +1,17 @@
+/* eslint-disable react-hooks/static-components -- Rows close over the current theme and expanded setting state. */
 import type { ImageSource } from "expo-image";
+import type { SFSymbol } from "expo-symbols";
+import { useState } from "react";
 import { Pressable, ScrollView, Switch, View } from "react-native";
 import { useTranslation } from "react-i18next";
+import { AppSymbol } from "@/components/AppSymbol";
 import { AppText as Text } from "@/components/AppText";
 import { useAppTheme } from "@/components/AppTheme";
+import { useCurrency } from "@/components/CurrencyProvider";
 import { ProfileHeader } from "@/components/profile/ProfileHeader";
 import { APP_VERSION } from "@/config/app";
 import { alpha } from "@/lib/color";
+import { SUPPORTED_CURRENCIES } from "@/lib/currency";
 
 export type ProfileContentBodyProps = {
   isAuthenticated: boolean;
@@ -33,12 +39,15 @@ export type ProfileContentBodyProps = {
 
 export function ProfileContentBody(props: ProfileContentBodyProps) {
   const appTheme = useAppTheme();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const { currency, setCurrency } = useCurrency();
+  const [expandedSetting, setExpandedSetting] = useState<"theme" | "currency" | "language" | null>(null);
   const rowColor = alpha(appTheme.colors.muted, appTheme.isDark ? 0.18 : 0.1);
 
-  const Row = ({ label, detail, onPress, destructive = false }: {
+  const Row = ({ label, detail, icon, onPress, destructive = false }: {
     label: string;
     detail?: string;
+    icon: SFSymbol;
     onPress: () => void;
     destructive?: boolean;
   }) => (
@@ -48,11 +57,46 @@ export function ProfileContentBody(props: ProfileContentBodyProps) {
       onPress={onPress}
       style={{ backgroundColor: rowColor }}
     >
-      <Text className="font-semibold" style={{ color: destructive ? appTheme.colors.negative : appTheme.colors.foreground }}>
-        {label}
-      </Text>
+      <View className="min-w-0 flex-1 flex-row items-center gap-3">
+        <AppSymbol
+          name={icon}
+          size={20}
+          tintColor={destructive ? appTheme.colors.negative : appTheme.colors.primary}
+          fallback={<Text style={{ color: destructive ? appTheme.colors.negative : appTheme.colors.primary }}>?</Text>}
+        />
+        <Text className="font-semibold" style={{ color: destructive ? appTheme.colors.negative : appTheme.colors.foreground }}>
+          {label}
+        </Text>
+      </View>
       {detail ? <Text className="ml-4 flex-1 text-right text-sm" style={{ color: appTheme.colors.muted }}>{detail}</Text> : null}
     </Pressable>
+  );
+
+  const Options = ({ options, selected, onSelect }: {
+    options: { label: string; value: string }[];
+    selected: string;
+    onSelect: (value: string) => void;
+  }) => (
+    <View className="gap-px">
+      {options.map((option) => (
+        <Pressable
+          key={option.value}
+          accessibilityRole="radio"
+          accessibilityState={{ checked: option.value === selected }}
+          className="min-h-12 flex-row items-center justify-between pl-12 pr-4 py-2"
+          onPress={() => {
+            onSelect(option.value);
+            setExpandedSetting(null);
+          }}
+          style={{ backgroundColor: rowColor }}
+        >
+          <Text style={{ color: appTheme.colors.foreground }}>{option.label}</Text>
+          {option.value === selected ? (
+            <AppSymbol name="checkmark" size={18} tintColor={appTheme.colors.primary} fallback={<Text style={{ color: appTheme.colors.primary }}>✓</Text>} />
+          ) : null}
+        </Pressable>
+      ))}
+    </View>
   );
 
   const Section = ({ title, children }: { title: string; children: React.ReactNode }) => (
@@ -78,40 +122,53 @@ export function ProfileContentBody(props: ProfileContentBodyProps) {
       <Section title={t("profile.account")}>
         {props.isAuthenticated ? (
           <>
-            <Row label={props.displayName} detail={props.email} onPress={props.onOpenAccount} />
-            <Row label={props.syncActionLabel} detail={props.syncDetail} onPress={props.onSyncNow} />
-            <Row label={t("common.signOut")} onPress={props.onSignOut} destructive />
+            <Row label={props.displayName} detail={props.email} icon="person.crop.circle" onPress={props.onOpenAccount} />
+            <Row label={props.syncActionLabel} detail={props.syncDetail} icon="arrow.triangle.2.circlepath" onPress={props.onSyncNow} />
+            <Row label={t("common.signOut")} icon="rectangle.portrait.and.arrow.right" onPress={props.onSignOut} destructive />
           </>
-        ) : <Row label={t("common.signIn")} onPress={props.onOpenAuth} />}
+        ) : <Row label={t("common.signIn")} icon="person.badge.key" onPress={props.onOpenAuth} />}
       </Section>
 
       <Section title={t("profile.appearance")}>
         <View className="min-h-14 flex-row items-center justify-between px-4" style={{ backgroundColor: rowColor }}>
-          <Text className="font-semibold" style={{ color: appTheme.colors.foreground }}>{t("profile.darkMode")}</Text>
+          <View className="flex-row items-center gap-3">
+            <AppSymbol name="moon" size={20} tintColor={appTheme.colors.primary} fallback={<Text style={{ color: appTheme.colors.primary }}>?</Text>} />
+            <Text className="font-semibold" style={{ color: appTheme.colors.foreground }}>{t("profile.darkMode")}</Text>
+          </View>
           <Switch
             value={appTheme.isDark}
             onValueChange={(value) => appTheme.setColorScheme(value ? "dark" : "light")}
             trackColor={{ true: appTheme.colors.primary }}
           />
         </View>
-        <Row label="Font" onPress={props.onOpenFontSettings} />
+        <Row label={t("profile.accentColor")} detail={appTheme.availableThemes.find((option) => option.slug === appTheme.theme)?.name} icon="paintpalette" onPress={() => setExpandedSetting(expandedSetting === "theme" ? null : "theme")} />
+        {expandedSetting === "theme" ? <Options options={appTheme.availableThemes.map((option) => ({ label: option.name, value: option.slug }))} selected={appTheme.theme} onSelect={appTheme.setTheme} /> : null}
+        <Row label="Font" icon="textformat.size" onPress={props.onOpenFontSettings} />
+      </Section>
+
+      <Section title={t("profile.app")}>
+        <Row label={t("profile.currency")} detail={currency} icon="dollarsign.circle" onPress={() => setExpandedSetting(expandedSetting === "currency" ? null : "currency")} />
+        {expandedSetting === "currency" ? <Options options={SUPPORTED_CURRENCIES.map((option) => ({ label: `${option.flag} ${option.code} - ${option.name}`, value: option.code }))} selected={currency} onSelect={setCurrency} /> : null}
+        <Row label={t("language.label")} detail={i18n.resolvedLanguage === "id" ? t("language.indonesia") : t("language.english")} icon="globe" onPress={() => setExpandedSetting(expandedSetting === "language" ? null : "language")} />
+        {expandedSetting === "language" ? <Options options={[{ label: t("language.english"), value: "en" }, { label: t("language.indonesia"), value: "id" }]} selected={i18n.resolvedLanguage || "en"} onSelect={(value) => void i18n.changeLanguage(value)} /> : null}
       </Section>
 
       <Section title={t("profile.updates")}>
         <Row
           label={props.isCheckingForUpdate ? t("profile.checkingForUpdates") : t("profile.checkForUpdates")}
           detail={props.updateStatus}
+          icon="arrow.clockwise.circle"
           onPress={props.onCheckForUpdates}
         />
-        <Row label={t("profile.appVersion", { version: APP_VERSION })} onPress={() => {}} />
+        <Row label={t("profile.appVersion", { version: APP_VERSION })} icon="info.circle" onPress={() => {}} />
       </Section>
 
       <Section title={t("profile.support")}>
-        <Row label={t("profile.privacyPolicy")} onPress={props.onOpenPrivacyPolicy} />
-        <Row label={t("profile.contactSupport")} onPress={props.onContactSupport} />
+        <Row label={t("profile.privacyPolicy")} icon="hand.raised" onPress={props.onOpenPrivacyPolicy} />
+        <Row label={t("profile.contactSupport")} icon="bubble.left.and.bubble.right" onPress={props.onContactSupport} />
       </Section>
 
-      {__DEV__ ? <Row label={t("profile.openOnboarding")} onPress={props.onOpenOnboarding} /> : null}
+      {__DEV__ ? <Row label={t("profile.openOnboarding")} icon="hand.wave" onPress={props.onOpenOnboarding} /> : null}
     </ScrollView>
   );
 }

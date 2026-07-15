@@ -59,13 +59,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const avatarUrl = user?.image ?? null;
   const avatarSource = getAvatarSource(avatarUrl);
 
-  console.log("[auth] Session user", {
-    email,
-    image: avatarUrl,
-    name: user?.name,
-    resolvedImage: avatarSource?.uri,
-  });
-
   const signOut = async () => {
     await authClient.signOut();
   };

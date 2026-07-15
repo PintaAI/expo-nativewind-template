@@ -1,7 +1,8 @@
 import { useMemo } from "react";
-import { ScrollView, View } from "react-native";
+import { View } from "react-native";
 import { Stack, useLocalSearchParams } from "expo-router";
-import { SymbolView, type SFSymbol } from "expo-symbols";
+import { type SFSymbol } from "expo-symbols";
+import { AppSymbol } from "@/components/AppSymbol";
 import { useTranslation } from "react-i18next";
 
 import { AppText as Text } from "@/components/AppText";
@@ -12,7 +13,7 @@ import { useCashflowData } from "@/data/cashflow/CashflowDataProvider";
 import { alpha } from "@/lib/color";
 
 function EntrySymbol({ name, color }: { name: SFSymbol; color: string }) {
-  return <SymbolView name={name} size={16} tintColor={color} fallback={<Text style={{ color }}>•</Text>} />;
+  return <AppSymbol name={name} size={16} tintColor={color} fallback={<Text style={{ color }}>•</Text>} />;
 }
 
 export default function CategoryEntriesFormSheet() {
@@ -38,24 +39,23 @@ export default function CategoryEntriesFormSheet() {
   return (
     <>
       <Stack.Screen options={{ title: t("analytics.categoryEntries", { category }) }} />
-      <ScrollView
-        className="bg-[--app-color-background]"
-        contentInsetAdjustmentBehavior="automatic"
-        contentContainerClassName="gap-4 px-5 pb-8 pt-3"
-      >
-        <View className="flex-row items-center gap-3 rounded-2xl p-4" style={{ backgroundColor: alpha(categoryColor, 0.1), borderColor: alpha(categoryColor, 0.22), borderWidth: 1 }}>
-          <View className="h-11 w-11 items-center justify-center rounded-2xl" style={{ backgroundColor: alpha(categoryColor, 0.16) }}>
-            <EntrySymbol name={categoryIcon} color={categoryColor} />
-          </View>
-          <View className="min-w-0 flex-1">
-            <Text numberOfLines={1} className="text-sm font-semibold" style={{ color: appTheme.colors.foreground }}>{category}</Text>
-            <Text className="text-xs" style={{ color: appTheme.colors.muted }}>{t("analytics.entries", { count: categoryEntries.length })}</Text>
-          </View>
-          <Text className="text-base font-bold" style={{ color: categoryColor }}>{format(total, { compact: true })}</Text>
-        </View>
-
-        <CashflowTable entries={categoryEntries} />
-      </ScrollView>
+      <View className="flex-1 bg-[--app-color-background]">
+        <CashflowTable
+          entries={categoryEntries}
+          ListHeaderComponent={
+            <View className="flex-row items-center gap-3 rounded-2xl p-4" style={{ backgroundColor: alpha(categoryColor, 0.1), borderColor: alpha(categoryColor, 0.22), borderWidth: 1 }}>
+              <View className="h-11 w-11 items-center justify-center rounded-2xl" style={{ backgroundColor: alpha(categoryColor, 0.16) }}>
+                <EntrySymbol name={categoryIcon} color={categoryColor} />
+              </View>
+              <View className="min-w-0 flex-1">
+                <Text numberOfLines={1} className="text-sm font-semibold" style={{ color: appTheme.colors.foreground }}>{category}</Text>
+                <Text className="text-xs" style={{ color: appTheme.colors.muted }}>{t("analytics.entries", { count: categoryEntries.length })}</Text>
+              </View>
+              <Text className="text-base font-bold" style={{ color: categoryColor }}>{format(total, { compact: true })}</Text>
+            </View>
+          }
+        />
+      </View>
     </>
   );
 }

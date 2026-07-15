@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Alert, Pressable, ScrollView, Share, TextInput, View } from "react-native";
+import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, Share, TextInput, View } from "react-native";
 import { Image } from "expo-image";
 import { router, Stack, useLocalSearchParams } from "expo-router";
-import { SymbolView } from "expo-symbols";
+import { toolbarIcons } from "@/config/toolbarIcons";
+import { AppSymbol } from "@/components/AppSymbol";
 import { useTranslation } from "react-i18next";
 import { AppText as Text } from "@/components/AppText";
+import { AndroidFormFooter, AndroidFormFooterButton } from "@/components/AndroidFormFooter";
 import { useAppTheme } from "@/components/AppTheme";
 import { IconSelector } from "@/components/IconSelector";
 import { useCashflowData } from "@/data/cashflow/CashflowDataProvider";
@@ -199,18 +201,32 @@ export default function WalletDetailScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title: isNewWallet ? t("wallet.newWallet") : management?.name }} />
-      <Stack.Toolbar placement="right">
-        <Stack.Toolbar.Button icon="checkmark" onPress={handleSave} variant="done">
-          {isSaving ? t("wallet.saving") : t("wallet.save")}
-        </Stack.Toolbar.Button>
-      </Stack.Toolbar>
+      <Stack.Screen
+        options={{
+          title: isNewWallet ? t("wallet.newWallet") : management?.name,
+          unstable_sheetFooter: Platform.OS === "android"
+            ? () => (
+                <AndroidFormFooter>
+                  <AndroidFormFooterButton label={isSaving ? t("wallet.saving") : t("wallet.save")} onPress={handleSave} primary disabled={isSaving} />
+                </AndroidFormFooter>
+              )
+            : undefined,
+        }}
+      />
+      {Platform.OS === "ios" ? (
+        <Stack.Toolbar placement="right">
+          <Stack.Toolbar.Button icon={toolbarIcons.check} onPress={handleSave} variant="done">
+            {isSaving ? t("wallet.saving") : t("wallet.save")}
+          </Stack.Toolbar.Button>
+        </Stack.Toolbar>
+      ) : null}
 
       <ScrollView
         className="bg-[--app-color-background] flex-1"
         contentContainerClassName="gap-4 px-4 pb-12 pt-4"
         contentInsetAdjustmentBehavior="automatic"
         keyboardShouldPersistTaps="handled"
+        nestedScrollEnabled={Platform.OS === "android"}
       >
         <View className="gap-4 rounded-[32px] border p-4" style={{ borderColor, backgroundColor: surface }}>
           <View className="flex-row items-center gap-4">
@@ -230,7 +246,7 @@ export default function WalletDetailScreen() {
                   style={{ height: "100%", width: "100%" }}
                 />
               ) : (
-                <SymbolView name={walletImageToIcon(displayImage)} size={38} tintColor={appTheme.colors.primary} fallback={<Text style={{ color: appTheme.colors.primary }}>•</Text>} />
+                <AppSymbol name={walletImageToIcon(displayImage)} size={38} tintColor={appTheme.colors.primary} fallback={<Text style={{ color: appTheme.colors.primary }}>•</Text>} />
               )}
               {isUploadingImage ? (
                 <View className="absolute inset-0 items-center justify-center gap-1" style={{ backgroundColor: alpha(appTheme.colors.foreground, 0.32) }}>
@@ -273,7 +289,7 @@ export default function WalletDetailScreen() {
               style={{ backgroundColor: alpha(appTheme.colors.primary, appTheme.isDark ? 0.16 : 0.1), opacity: isSaving ? 0.6 : 1 }}
             >
               <View className="flex-row items-center gap-2">
-                <SymbolView name={pendingUploadImage ? "checkmark.circle.fill" : "photo"} size={17} tintColor={appTheme.colors.primary} fallback={<Text style={{ color: appTheme.colors.primary }}>+</Text>} />
+                <AppSymbol name={pendingUploadImage ? "checkmark.circle.fill" : "photo"} size={17} tintColor={appTheme.colors.primary} fallback={<Text style={{ color: appTheme.colors.primary }}>+</Text>} />
                 <Text className="text-sm font-bold" style={{ color: appTheme.colors.primary }}>
                   {isUploadingImage ? t("wallet.uploadingPhoto") : pendingUploadImage ? t("wallet.photoSelected") : t("wallet.uploadPhoto")}
                 </Text>
@@ -312,7 +328,7 @@ export default function WalletDetailScreen() {
                 className="flex-row items-center gap-2 rounded-full px-3 py-2"
                 style={{ backgroundColor: alpha(appTheme.colors.primary, 0.14), opacity: isSharingInvite ? 0.6 : 1 }}
               >
-                <SymbolView name="square.and.arrow.up" size={15} tintColor={appTheme.colors.primary} fallback={<Text style={{ color: appTheme.colors.primary }}>+</Text>} />
+                <AppSymbol name="square.and.arrow.up" size={15} tintColor={appTheme.colors.primary} fallback={<Text style={{ color: appTheme.colors.primary }}>+</Text>} />
                 <Text className="text-xs font-bold" style={{ color: appTheme.colors.primary }}>
                   {isSharingInvite ? t("wallet.creating") : t("wallet.invite")}
                 </Text>

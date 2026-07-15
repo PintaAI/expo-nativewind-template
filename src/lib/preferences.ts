@@ -61,8 +61,12 @@ export async function removePreference(key: keyof Preferences): Promise<void> {
   await AsyncStorage.removeItem(getStorageKey(key));
 }
 
-export async function clearPreferences(): Promise<void> {
-  await AsyncStorage.multiRemove(Object.keys(preferenceDefaults).map((key) => getStorageKey(key as keyof Preferences)));
+export async function clearPreferences(options?: { preserveOnboarding?: boolean }): Promise<void> {
+  const keys = (Object.keys(preferenceDefaults) as (keyof Preferences)[])
+    .filter((key) => !options?.preserveOnboarding || key !== "hasSkippedOnboarding")
+    .map(getStorageKey);
+
+  await AsyncStorage.multiRemove(keys);
 }
 
 export async function getCustomThemes(): Promise<StoredTheme[]> {

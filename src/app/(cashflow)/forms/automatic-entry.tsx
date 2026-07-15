@@ -1,11 +1,14 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { Alert, Modal, Pressable, ScrollView, TextInput, View } from "react-native";
-import DateTimePicker from "@expo/ui/community/datetime-picker";
+import { Alert, Modal, Platform, Pressable, ScrollView, TextInput, View } from "react-native";
+import { DateTimePicker } from "@expo/ui/community/datetime-picker";
 import { router, Stack, type Href } from "expo-router";
-import { SymbolView, type SFSymbol } from "expo-symbols";
+import { toolbarIcons } from "@/config/toolbarIcons";
+import { type SFSymbol } from "expo-symbols";
+import { AppSymbol } from "@/components/AppSymbol";
 import { useTranslation } from "react-i18next";
 
 import { AppText as Text } from "@/components/AppText";
+import { AndroidFormFooter, AndroidFormFooterButton } from "@/components/AndroidFormFooter";
 import { useAppTheme } from "@/components/AppTheme";
 import { CashflowAmountInput, QuickAmountStrip } from "@/components/cashflow/AmountEntryControls";
 import { CategorySlider } from "@/components/cashflow/CategorySlider";
@@ -16,6 +19,7 @@ import { useCashflowData } from "@/data/cashflow/CashflowDataProvider";
 import type { RecurringFrequency } from "@/data/cashflow/types";
 import { alpha } from "@/lib/color";
 import { formatDateKey, toDateKey } from "@/lib/date";
+import { requestAutomaticEntryNotificationPermissionAsync } from "@/tasks/automaticEntries";
 
 const FREQUENCIES = [
   { value: "daily", icon: "sun.max.fill" },
@@ -35,13 +39,27 @@ function parseAmountInput(value: string) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
 }
 
+function reminderTimeToDate(value: string) {
+  const [hour, minute] = value.split(":").map(Number);
+  const date = new Date();
+  date.setHours(hour, minute, 0, 0);
+  return date;
+}
+
+function formatReminderTime(value: string) {
+  return reminderTimeToDate(value).toLocaleTimeString(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
 function Section({ title, icon, children }: { title: string; icon: SFSymbol; children: ReactNode }) {
   const appTheme = useAppTheme();
 
   return (
     <View className="gap-3">
       <View className="flex-row items-center gap-2 px-1">
-        <SymbolView name={icon} size={14} tintColor={appTheme.colors.muted} fallback={<Text style={{ color: appTheme.colors.muted }}>•</Text>} />
+        <AppSymbol name={icon} size={14} tintColor={appTheme.colors.muted} fallback={<Text style={{ color: appTheme.colors.muted }}>•</Text>} />
         <Text className="text-xs font-semibold uppercase tracking-wide" style={{ color: appTheme.colors.muted }}>
           {title}
         </Text>
@@ -66,7 +84,7 @@ function TypeChoice({ label, icon, selected, tint, onPress }: { label: string; i
         borderColor,
       }}
     >
-      <SymbolView name={icon} size={16} tintColor={selected ? tint : appTheme.colors.muted} fallback={<Text style={{ color: selected ? tint : appTheme.colors.muted }}>•</Text>} />
+      <AppSymbol name={icon} size={16} tintColor={selected ? tint : appTheme.colors.muted} fallback={<Text style={{ color: selected ? tint : appTheme.colors.muted }}>•</Text>} />
       <Text className="text-sm font-bold" style={{ color: selected ? tint : appTheme.colors.foreground }}>
         {label}
       </Text>
@@ -89,7 +107,7 @@ function FrequencyChoice({ label, icon, selected, onPress }: { label: string; ic
         borderColor,
       }}
     >
-      <SymbolView name={icon} size={17} tintColor={selected ? appTheme.colors.primary : appTheme.colors.muted} fallback={<Text style={{ color: appTheme.colors.muted }}>•</Text>} />
+      <AppSymbol name={icon} size={17} tintColor={selected ? appTheme.colors.primary : appTheme.colors.muted} fallback={<Text style={{ color: appTheme.colors.muted }}>•</Text>} />
       <Text className="text-sm font-semibold" style={{ color: selected ? appTheme.colors.primary : appTheme.colors.foreground }}>
         {label}
       </Text>
@@ -107,7 +125,9 @@ export default function AutomaticEntryFormSheet() {
   const [ioIndex, setIoIndex] = useState(1);
   const [frequencyIndex, setFrequencyIndex] = useState(1);
   const [nextDate, setNextDate] = useState(() => toDateKey(getDateDaysAhead(1)));
+  const [reminderTime, setReminderTime] = useState("09:00");
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   const borderColor = alpha(appTheme.colors.foreground, appTheme.isDark ? 0.09 : 0.07);
@@ -145,6 +165,7 @@ export default function AutomaticEntryFormSheet() {
     setIoIndex(1);
     setFrequencyIndex(1);
     setNextDate(toDateKey(getDateDaysAhead(1)));
+    setReminderTime("09:00");
     resetCategoryIndex();
   };
 
@@ -163,6 +184,7 @@ export default function AutomaticEntryFormSheet() {
 
     setIsSaving(true);
     try {
+      const notificationsAllowed = await requestAutomaticEntryNotificationPermissionAsync();
       await createRecurringEntry({
         name: trimmed,
         nominal,
@@ -170,8 +192,12 @@ export default function AutomaticEntryFormSheet() {
         io: ioIndex === 0 ? "Income" : "Expenses",
         frequency: FREQUENCIES[frequencyIndex].value,
         nextDate,
+        reminderTime,
       });
       resetForm();
+      if (!notificationsAllowed) {
+        Alert.alert(t("autoEntry.notificationsDisabledTitle"), t("autoEntry.notificationsDisabledMessage"));
+      }
     } finally {
       setIsSaving(false);
     }
@@ -186,21 +212,38 @@ export default function AutomaticEntryFormSheet() {
 
   return (
     <>
-      <Stack.Screen options={{ title: activeManagement?.name ?? t("autoEntry.heading") }} />
-      <Stack.Toolbar placement="left">
-        <Stack.Toolbar.Button icon="xmark" onPress={() => router.back()} />
-      </Stack.Toolbar>
-      <Stack.Toolbar placement="right">
-        <Stack.Toolbar.Button icon="checkmark" disabled={!canSubmit} onPress={handleCreate} variant="done">
-          {t("autoEntry.newEntry")}
-        </Stack.Toolbar.Button>
-      </Stack.Toolbar>
+      <Stack.Screen
+        options={{
+          title: activeManagement?.name ?? t("autoEntry.heading"),
+          unstable_sheetFooter: Platform.OS === "android"
+            ? () => (
+                <AndroidFormFooter>
+                  <AndroidFormFooterButton label={t("common.close")} onPress={() => router.back()} />
+                  <AndroidFormFooterButton label={t("autoEntry.newEntry")} onPress={handleCreate} primary disabled={!canSubmit} />
+                </AndroidFormFooter>
+              )
+            : undefined,
+        }}
+      />
+      {Platform.OS === "ios" ? (
+        <>
+          <Stack.Toolbar placement="left">
+            <Stack.Toolbar.Button icon={toolbarIcons.close} accessibilityLabel="Close" onPress={() => router.back()} />
+          </Stack.Toolbar>
+          <Stack.Toolbar placement="right">
+            <Stack.Toolbar.Button icon={toolbarIcons.check} disabled={!canSubmit} onPress={handleCreate} variant="done">
+              {t("autoEntry.newEntry")}
+            </Stack.Toolbar.Button>
+          </Stack.Toolbar>
+        </>
+      ) : null}
 
       <ScrollView
         className="flex-1 bg-[--app-color-background]"
         contentContainerClassName="gap-5 px-5 pb-10 pt-5"
         contentInsetAdjustmentBehavior="automatic"
         keyboardShouldPersistTaps="handled"
+        nestedScrollEnabled={Platform.OS === "android"}
       >
         <View className="gap-1">
           <Text className="text-3xl font-black tracking-tight" style={{ color: appTheme.colors.foreground }}>
@@ -254,7 +297,7 @@ export default function AutomaticEntryFormSheet() {
               style={{ backgroundColor: rowSurface }}
             >
               <View className="h-10 w-10 items-center justify-center rounded-2xl" style={{ backgroundColor: alpha(appTheme.colors.primary, 0.14) }}>
-                <SymbolView name="calendar.badge.clock" size={17} tintColor={appTheme.colors.primary} fallback={<Text style={{ color: appTheme.colors.primary }}>•</Text>} />
+                <AppSymbol name="calendar.badge.clock" size={17} tintColor={appTheme.colors.primary} fallback={<Text style={{ color: appTheme.colors.primary }}>•</Text>} />
               </View>
               <View className="min-w-0 flex-1">
                 <Text className="text-xs font-semibold uppercase tracking-wide" style={{ color: appTheme.colors.muted }}>
@@ -262,6 +305,28 @@ export default function AutomaticEntryFormSheet() {
                 </Text>
                 <Text className="mt-0.5 text-base font-bold" style={{ color: appTheme.colors.foreground }}>
                   {formatDateKey(nextDate)}
+                </Text>
+              </View>
+              <Text className="text-sm font-semibold" style={{ color: appTheme.colors.primary }}>
+                {t("transfer.change")}
+              </Text>
+            </Pressable>
+
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => setShowTimePicker(true)}
+              className="min-h-14 flex-row items-center gap-3 rounded-3xl px-4 py-3"
+              style={{ backgroundColor: rowSurface }}
+            >
+              <View className="h-10 w-10 items-center justify-center rounded-2xl" style={{ backgroundColor: alpha(appTheme.colors.primary, 0.14) }}>
+                <AppSymbol name="clock.fill" size={17} tintColor={appTheme.colors.primary} fallback={<Text style={{ color: appTheme.colors.primary }}>•</Text>} />
+              </View>
+              <View className="min-w-0 flex-1">
+                <Text className="text-xs font-semibold uppercase tracking-wide" style={{ color: appTheme.colors.muted }}>
+                  {t("autoEntry.reminderTime")}
+                </Text>
+                <Text className="mt-0.5 text-base font-bold" style={{ color: appTheme.colors.foreground }}>
+                  {formatReminderTime(reminderTime)}
                 </Text>
               </View>
               <Text className="text-sm font-semibold" style={{ color: appTheme.colors.primary }}>
@@ -296,7 +361,7 @@ export default function AutomaticEntryFormSheet() {
               <View key={entry.id} className="rounded-3xl border p-4" style={{ borderColor, backgroundColor: surface }}>
                 <View className="flex-row items-center gap-3">
                   <View className="h-11 w-11 items-center justify-center rounded-2xl" style={{ backgroundColor: alpha(color, 0.16) }}>
-                    <SymbolView name={(category?.icon ?? "repeat.circle.fill") as SFSymbol} size={21} tintColor={color} fallback={<Text style={{ color }}>•</Text>} />
+                    <AppSymbol name={(category?.icon ?? "repeat.circle.fill") as SFSymbol} size={21} tintColor={color} fallback={<Text style={{ color }}>•</Text>} />
                   </View>
                   <View className="min-w-0 flex-1">
                     <Text numberOfLines={1} className="text-base font-bold" style={{ color: appTheme.colors.foreground }}>
@@ -306,7 +371,7 @@ export default function AutomaticEntryFormSheet() {
                       {[currency.format(entry.nominal, { compact: true }), ioLabel, frequencyLabel, category?.name ?? t("autoEntry.noCategory")].join(" · ")}
                     </Text>
                     <Text className="mt-1 text-xs font-semibold" style={{ color: appTheme.colors.primary }}>
-                      {t("autoEntry.nextLabel", { date: formatDateKey(entry.nextDate) })}
+                      {t("autoEntry.nextLabel", { date: formatDateKey(entry.nextDate), time: formatReminderTime(entry.reminderTime) })}
                     </Text>
                   </View>
                   <Pressable
@@ -316,7 +381,7 @@ export default function AutomaticEntryFormSheet() {
                     className="h-10 w-10 items-center justify-center rounded-full"
                     style={{ backgroundColor: alpha(appTheme.colors.negative, appTheme.isDark ? 0.18 : 0.1) }}
                   >
-                    <SymbolView name="trash.fill" size={16} tintColor={appTheme.colors.negative} fallback={<Text style={{ color: appTheme.colors.negative }}>×</Text>} />
+                    <AppSymbol name="trash.fill" size={16} tintColor={appTheme.colors.negative} fallback={<Text style={{ color: appTheme.colors.negative }}>×</Text>} />
                   </Pressable>
                 </View>
               </View>
@@ -346,6 +411,35 @@ export default function AutomaticEntryFormSheet() {
                   setShowDatePicker(false);
                 }}
                 onDismiss={() => setShowDatePicker(false)}
+              />
+            </Pressable>
+          </Pressable>
+        </Modal>
+      ) : null}
+
+      {showTimePicker ? (
+        <Modal transparent animationType="fade" onRequestClose={() => setShowTimePicker(false)}>
+          <Pressable className="flex-1 justify-end px-4 pb-8" style={{ backgroundColor: "rgba(0,0,0,0.35)" }} onPress={() => setShowTimePicker(false)}>
+            <Pressable
+              className="rounded-3xl border p-4"
+              style={{
+                backgroundColor: appTheme.colors.background,
+                borderColor: alpha(appTheme.colors.foreground, appTheme.isDark ? 0.12 : 0.1),
+              }}
+            >
+              <DateTimePicker
+                value={reminderTimeToDate(reminderTime)}
+                mode="time"
+                presentation="inline"
+                display="spinner"
+                accentColor={appTheme.colors.primary}
+                onValueChange={(_event, date) => {
+                  if (date) {
+                    setReminderTime(`${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`);
+                  }
+                  setShowTimePicker(false);
+                }}
+                onDismiss={() => setShowTimePicker(false)}
               />
             </Pressable>
           </Pressable>

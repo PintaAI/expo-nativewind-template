@@ -14,6 +14,7 @@ import {
   updateCategoryBudget as persistCategoryBudget,
   updateCategory as updateCategoryInRepo,
   createEntry as insertEntry,
+  deleteEntriesBulk,
   deleteEntry as softDeleteEntry,
   createTransfer as insertTransfer,
   createManagement as insertManagement,
@@ -28,6 +29,7 @@ import {
   listQuickFills,
   listRecurringEntries,
   materializeDueRecurringEntries,
+  moveEntries as moveEntriesInRepo,
   setActiveManagementId as persistActiveManagementId,
   setManagementImage as persistManagementImage,
   updateOverallBudget as persistOverallBudget,
@@ -36,6 +38,11 @@ import {
   updateManagement as updateManagementInRepo,
 } from "./repository";
 import type { CashflowEntry } from "@/components/cashflow/CashflowTable";
+import {
+  notifyMaterializedAutomaticEntriesAsync,
+  registerAutomaticEntryBackgroundTaskAsync,
+  syncAutomaticEntryRemindersAsync,
+} from "@/tasks/automaticEntries";
 
 const emptyActivity = buildActivity([]);
 const emptyAnalytics = buildAnalytics([], []);
@@ -69,6 +76,16 @@ export function CashflowDataProvider({ children }: { children: ReactNode }) {
     setEntries(nextEntries);
   }, [db]);
 
+  const refreshEntries = useCallback(async () => {
+    if (!activeManagementId) return;
+    const [nextManagements, nextEntries] = await Promise.all([
+      listManagements(db),
+      listEntries(db, activeManagementId),
+    ]);
+    setManagements(nextManagements);
+    setEntries(nextEntries);
+  }, [db, activeManagementId]);
+
   const refresh = useCallback(async () => {
     const [nextManagements, storedManagementId] = await Promise.all([listManagements(db), getActiveManagementId(db)]);
     const fallbackManagementId = storedManagementId ?? nextManagements[0]?.id ?? null;
@@ -86,7 +103,8 @@ export function CashflowDataProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    await materializeDueRecurringEntries(db, fallbackManagementId);
+    const materialized = await materializeDueRecurringEntries(db, fallbackManagementId);
+    await notifyMaterializedAutomaticEntriesAsync(materialized);
     await loadActiveWalletData(fallbackManagementId);
     setIsReady(true);
   }, [db, loadActiveWalletData]);
@@ -109,6 +127,14 @@ export function CashflowDataProvider({ children }: { children: ReactNode }) {
     };
   }, [db, refresh]);
 
+  useEffect(() => {
+    if (!isReady) return;
+
+    registerAutomaticEntryBackgroundTaskAsync()
+      .then(() => syncAutomaticEntryRemindersAsync(db))
+      .catch((error) => console.error("Failed to prepare automatic entries", error));
+  }, [db, isReady, recurringEntries]);
+
   const activeManagement = useMemo(
     () => managements.find((management) => management.id === activeManagementId) ?? null,
     [activeManagementId, managements],
@@ -117,7 +143,7 @@ export function CashflowDataProvider({ children }: { children: ReactNode }) {
   const activity = useMemo(() => buildActivity(entries), [entries]);
   const analytics = useMemo(() => buildAnalytics(entries, categories), [entries, categories]);
 
-  const value: CashflowDataState = {
+  const value: CashflowDataState = useMemo(() => ({
     isReady,
     activeManagementId,
     activeManagement,
@@ -130,7 +156,7 @@ export function CashflowDataProvider({ children }: { children: ReactNode }) {
     stats: entries.length > 0 ? stats : emptyCashflowStats,
     activity: entries.length > 0 ? activity : emptyActivity,
     analytics: entries.length > 0 ? analytics : emptyAnalytics,
-    setActiveManagementId: (managementId) => {
+    setActiveManagementId: (managementId: string) => {
       setActiveManagementIdState(managementId);
       void persistActiveManagementId(db, managementId).catch((error) => console.error("Failed to persist active management id", error));
       void loadActiveWalletData(managementId).catch((error) => console.error("Failed to load wallet data", error));
@@ -195,7 +221,8 @@ export function CashflowDataProvider({ children }: { children: ReactNode }) {
     createRecurringEntry: async (input: CreateRecurringEntryInput) => {
       if (!activeManagementId) return;
       await insertRecurringEntry(db, activeManagementId, input);
-      await materializeDueRecurringEntries(db, activeManagementId);
+      const materialized = await materializeDueRecurringEntries(db, activeManagementId);
+      await notifyMaterializedAutomaticEntriesAsync(materialized);
       await refresh();
     },
     deleteRecurringEntry: async (id: string) => {
@@ -206,29 +233,34 @@ export function CashflowDataProvider({ children }: { children: ReactNode }) {
     createEntry: async (input: CreateEntryInput) => {
       if (!activeManagementId) return;
       await insertEntry(db, activeManagementId, input);
-      await refresh();
+      await refreshEntries();
     },
     updateEntry: async (id: string, input: CreateEntryInput) => {
       if (!activeManagementId) return;
       await updateEntryInRepo(db, activeManagementId, id, input);
-      await refresh();
+      await refreshEntries();
+    },
+    moveEntries: async (ids: string[], targetManagementId: string) => {
+      if (!activeManagementId) return;
+      await moveEntriesInRepo(db, activeManagementId, targetManagementId, ids);
+      await refreshEntries();
     },
     deleteEntry: async (id: string) => {
       if (!activeManagementId) return;
       await softDeleteEntry(db, activeManagementId, id);
-      await refresh();
+      await refreshEntries();
     },
     deleteEntries: async (ids: string[]) => {
       if (!activeManagementId) return;
-      for (const id of ids) await softDeleteEntry(db, activeManagementId, id);
-      await refresh();
+      await deleteEntriesBulk(db, activeManagementId, ids);
+      await refreshEntries();
     },
     createTransfer: async (input) => {
       await insertTransfer(db, input);
       await refresh();
     },
     refresh,
-  };
+  }), [isReady, activeManagementId, activeManagement, managements, categories, overallBudgets, quickFills, recurringEntries, entries, stats, activity, analytics, db, loadActiveWalletData, refresh, refreshEntries]);
 
   return <CashflowDataContext.Provider value={value}>{children}</CashflowDataContext.Provider>;
 }

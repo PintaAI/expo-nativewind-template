@@ -1,5 +1,6 @@
 import "../global.css";
 import "@/i18n";
+import "@/tasks/automaticEntries";
 import { Suspense } from "react";
 import { ThemeProvider, DefaultTheme, DarkTheme, Stack } from "expo-router";
 import { SQLiteProvider } from "expo-sqlite";
@@ -10,8 +11,11 @@ import { DrawerProvider } from "@/components/DrawerContext";
 import { SyncProvider } from "@/components/SyncProvider";
 import { CashflowDataProvider } from "@/data/cashflow/CashflowDataProvider";
 import { migrateCashflowDatabase } from "@/data/cashflow/schema";
-import { View } from "react-native";
+import { configureForegroundNotifications } from "@/lib/notifications";
+import { Platform, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+
+configureForegroundNotifications();
 
 export default function RootLayout() {
   return (
@@ -60,15 +64,29 @@ function RootNavigator() {
                     <Stack.Screen name="(onboarding)" options={{ headerShown: false }} />
                     <Stack.Screen
                       name="auth"
-                      options={{
-                        presentation: "formSheet",
-                        sheetAllowedDetents: "fitToContents",
-                        sheetExpandsWhenScrolledToEdge: false,
-                        headerLargeTitle: false,
-                        headerTransparent: true,
-                        headerStyle: { backgroundColor: "transparent" },
-                        sheetGrabberVisible: true,
-                      }}
+                      options={Platform.select({
+                        ios: {
+                          presentation: "formSheet" as const,
+                          sheetAllowedDetents: "fitToContents" as const,
+                          sheetExpandsWhenScrolledToEdge: false,
+                          headerLargeTitle: false,
+                          headerTransparent: true,
+                          headerStyle: { backgroundColor: "transparent" },
+                          sheetGrabberVisible: true,
+                        },
+                        default: {
+                          presentation: "formSheet" as const,
+                          headerLargeTitle: false,
+                          headerTransparent: false,
+                          sheetAllowedDetents: "fitToContents" as const,
+                          sheetInitialDetentIndex: 0,
+                          sheetCornerRadius: 28,
+                          sheetElevation: 24,
+                          sheetShouldOverflowTopInset: false,
+                          sheetLargestUndimmedDetentIndex: "none" as const,
+                          sheetResizeAnimationEnabled: true,
+                        },
+                      })}
                     />
                     <Stack.Screen
                       name="profile"

@@ -4,6 +4,7 @@ import { Stack } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { useDrawer } from "@/components/DrawerContext";
 import { useAppTheme } from "@/components/AppTheme";
+import { toolbarIcons } from "@/config/toolbarIcons";
 
 export default function SummaryScreen() {
   const { open } = useDrawer();
@@ -14,7 +15,7 @@ export default function SummaryScreen() {
     <>
       <Stack.Screen options={{ title: t("tabs.summary") }} />
       <Stack.Toolbar placement="left">
-        <Stack.Toolbar.Button icon="sidebar.left" onPress={open} />
+        <Stack.Toolbar.Button icon={toolbarIcons.menu} accessibilityLabel="Open menu" onPress={open} />
       </Stack.Toolbar>
       <ScrollView
         className="flex-1 bg-[--app-color-background]"

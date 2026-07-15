@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Alert, Pressable, ScrollView, TextInput, View } from "react-native";
+import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, TextInput, View } from "react-native";
 import { router, Stack } from "expo-router";
-import { SymbolView } from "expo-symbols";
+import { toolbarIcons } from "@/config/toolbarIcons";
+import { AppSymbol } from "@/components/AppSymbol";
 import { useTranslation } from "react-i18next";
 
 import { AppText as Text } from "@/components/AppText";
+import { AndroidFormFooter, AndroidFormFooterButton } from "@/components/AndroidFormFooter";
 import { useAppTheme } from "@/components/AppTheme";
 import { useCurrency } from "@/components/CurrencyProvider";
 import { useSyncStatus } from "@/components/SyncProvider";
@@ -82,16 +84,30 @@ export default function AuditFormSheet() {
 
   return (
     <>
-      <Stack.Screen options={{ title: t("audit.title") }} />
-      <Stack.Toolbar placement="left">
-        <Stack.Toolbar.Button icon="xmark" onPress={() => router.back()} />
-      </Stack.Toolbar>
+      <Stack.Screen
+        options={{
+          title: t("audit.title"),
+          unstable_sheetFooter: Platform.OS === "android"
+            ? () => (
+                <AndroidFormFooter>
+                  <AndroidFormFooterButton label={t("common.close")} onPress={() => router.back()} />
+                </AndroidFormFooter>
+              )
+            : undefined,
+        }}
+      />
+      {Platform.OS === "ios" ? (
+        <Stack.Toolbar placement="left">
+          <Stack.Toolbar.Button icon={toolbarIcons.close} accessibilityLabel="Close" onPress={() => router.back()} />
+        </Stack.Toolbar>
+      ) : null}
 
       <ScrollView
         className="flex-1 bg-[--app-color-background]"
         contentContainerClassName="gap-5 px-5 pb-10 pt-5"
         contentInsetAdjustmentBehavior="automatic"
         keyboardShouldPersistTaps="handled"
+        nestedScrollEnabled={Platform.OS === "android"}
       >
         <Text className="text-sm leading-5" style={{ color: appTheme.colors.muted }}>{t("audit.description")}</Text>
 
@@ -143,7 +159,7 @@ export default function AuditFormSheet() {
         {difference !== null ? (
           <View className="rounded-3xl border p-4" style={{ borderColor: alpha(statusColor, 0.35), backgroundColor: alpha(statusColor, 0.1) }}>
             <View className="flex-row items-center gap-2">
-              <SymbolView name={matches ? "checkmark.circle.fill" : "exclamationmark.triangle.fill"} size={18} tintColor={statusColor} fallback={<Text style={{ color: statusColor }}>•</Text>} />
+              <AppSymbol name={matches ? "checkmark.circle.fill" : "exclamationmark.triangle.fill"} size={18} tintColor={statusColor} fallback={<Text style={{ color: statusColor }}>•</Text>} />
               <Text className="text-base font-bold" style={{ color: statusColor }}>
                 {matches ? t("audit.matches") : t("audit.difference", { amount: currency.format(difference) })}
               </Text>

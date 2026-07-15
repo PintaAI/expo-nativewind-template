@@ -1,13 +1,14 @@
 import { useRef, useState, useMemo } from "react";
 import type React from "react";
 import { Pressable, ScrollView, View, type ScrollView as ScrollViewType } from "react-native";
-import { SymbolView, type SFSymbol } from "expo-symbols";
-import SegmentedControl from "@expo/ui/community/segmented-control";
+import type { SFSymbol } from "expo-symbols";
 import Svg, { Circle, G } from "react-native-svg";
 import { AppText as RNText } from "@/components/AppText";
+import { AppSymbol } from "@/components/AppSymbol";
 import { useAppTheme } from "@/components/AppTheme";
 import { useTranslation } from "react-i18next";
 import { useCurrency } from "@/components/CurrencyProvider";
+import { AppSegmentedControl } from "@/components/AppSegmentedControl";
 
 import { alpha } from "@/lib/color";
 import { toDateKey } from "@/lib/date";
@@ -51,7 +52,7 @@ type MockAnalyticsData = {
 // ─── Helpers ──────────────────────────────────────────────
 
 function ChartSymbol({ name, color, size = 14 }: { name: SFSymbol; color: string; size?: number }) {
-  return <SymbolView name={name} size={size} tintColor={color} fallback={<RNText style={{ color }}>•</RNText>} />;
+  return <AppSymbol name={name} size={size} tintColor={color} fallback={<RNText style={{ color }}>•</RNText>} />;
 }
 
 function monthKeyFromDate(date: Date) {
@@ -291,12 +292,10 @@ function CategoryBreakdown({ data, onCategoryPress }: { data: CategoryAnalytics[
     <View className="gap-3">
       <View className="flex-row items-center justify-between gap-3">
         <RNText className="text-sm font-bold" style={{ color: appTheme.colors.foreground }}>{t('analytics.categoryBreakdown')}</RNText>
-        <SegmentedControl
+        <AppSegmentedControl
           values={[t('analytics.chart'), t('analytics.details')]}
           selectedIndex={showDetail ? 1 : 0}
-          onChange={(event) => setShowDetail(event.nativeEvent.selectedSegmentIndex === 1)}
-          tintColor={appTheme.colors.primary}
-          appearance={appTheme.isDark ? "dark" : "light"}
+          onIndexChange={(index) => setShowDetail(index === 1)}
           style={{ width: 150 }}
         />
       </View>

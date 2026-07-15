@@ -1,9 +1,11 @@
 import { useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
+import { ActivityIndicator, Platform, Pressable, ScrollView, View } from "react-native";
 import { router, Stack } from "expo-router";
+import { toolbarIcons } from "@/config/toolbarIcons";
 import { useTranslation } from "react-i18next";
 import { AppText } from "@/components/AppText";
 import { useAppTheme } from "@/components/AppTheme";
+import { AndroidFormFooter, AndroidFormFooterButton } from "@/components/AndroidFormFooter";
 import { authClient } from "@/lib/auth-client";
 
 type AuthProvider = "google" | "apple";
@@ -57,18 +59,27 @@ export default function Auth() {
         options={{
           title: "",
           contentStyle: { backgroundColor: appTheme.colors.background },
-          headerTransparent: true,
-          headerStyle: { backgroundColor: "transparent" },
+          headerTransparent: Platform.OS === "ios",
+          headerStyle: { backgroundColor: Platform.OS === "ios" ? "transparent" : appTheme.colors.background },
+          unstable_sheetFooter: Platform.OS === "android"
+            ? () => (
+                <AndroidFormFooter>
+                  <AndroidFormFooterButton label={t("common.close")} onPress={() => router.back()} />
+                </AndroidFormFooter>
+              )
+            : undefined,
         }}
       />
-      <Stack.Toolbar placement="right">
-        <Stack.Toolbar.Button icon="xmark" onPress={() => router.back()} />
-      </Stack.Toolbar>
+      {Platform.OS === "ios" ? (
+        <Stack.Toolbar placement="right">
+          <Stack.Toolbar.Button icon={toolbarIcons.close} accessibilityLabel="Close" onPress={() => router.back()} />
+        </Stack.Toolbar>
+      ) : null}
 
       <ScrollView
-        className="flex-1 bg-[--app-color-background]"
+        className={Platform.OS === "android" ? "bg-[--app-color-background]" : "flex-1 bg-[--app-color-background]"}
         contentContainerClassName="gap-5 px-5 pb-10 mt-5 pt-5"
-      
+        nestedScrollEnabled={Platform.OS === "android"}
         keyboardShouldPersistTaps="handled"
         style={{ backgroundColor: appTheme.colors.background }}
       >

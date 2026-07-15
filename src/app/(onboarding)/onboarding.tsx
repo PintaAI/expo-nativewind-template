@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { type FlatList, Pressable, ScrollView, View, useWindowDimensions } from "react-native";
+import { type FlatList, Pressable, View, useWindowDimensions } from "react-native";
 import { BottomSheet, Host, RNHostView } from "@expo/ui";
 import { router, Stack } from "expo-router";
 import { useTranslation } from "react-i18next";
@@ -66,22 +66,23 @@ function ProgressLine({
 
 function HomePreviewBody() {
   return (
-    <ScrollView
-      className="bg-[--app-color-background] flex-1"
-      contentContainerClassName="px-5 pb-10 pt-5"
-      contentInsetAdjustmentBehavior="automatic"
-      showsVerticalScrollIndicator={false}
-    >
-      <CashflowStatsCard stats={sampleStats} managementName={sampleManagement.name} />
-      <ActivityHeatmap
-        activity={sampleActivity}
-        selectedDate={sampleSelectedDate}
-        onDateSelect={() => {}}
+    <View className="bg-[--app-color-background] flex-1">
+      <CashflowTable
+        entries={sampleDayEntries}
+        hideTanggal
+        ListHeaderComponent={
+          <View>
+            <CashflowStatsCard stats={sampleStats} managementName={sampleManagement.name} />
+            <ActivityHeatmap
+              activity={sampleActivity}
+              selectedDate={sampleSelectedDate}
+              onDateSelect={() => {}}
+            />
+            <View className="mt-5" />
+          </View>
+        }
       />
-      <View className="mt-5">
-        <CashflowTable entries={sampleDayEntries} hideTanggal />
-      </View>
-    </ScrollView>
+    </View>
   );
 }
 
@@ -151,6 +152,7 @@ export default function OnboardingScreen() {
   const pagerRef = useRef<FlatList<OnboardingSlide>>(null);
   const [page, setPage] = useState(0);
   const [showAccountOptions, setShowAccountOptions] = useState(false);
+  const [isCompleting, setIsCompleting] = useState(false);
   const scrollX = useSharedValue(0);
 
   const slides: OnboardingSlide[] = [
@@ -183,6 +185,25 @@ export default function OnboardingScreen() {
 
   const handlePageSettle = (nextPage: number) => {
     setPage(nextPage);
+  };
+
+  const completeOnboarding = async (destination: "/auth" | "/home") => {
+    if (isCompleting) return;
+
+    setIsCompleting(true);
+    try {
+      await setPreference("hasSkippedOnboarding", true);
+      setShowAccountOptions(false);
+
+      if (destination === "/auth") {
+        router.push(destination);
+      } else {
+        router.replace(destination);
+      }
+    } catch (error) {
+      console.warn("Failed to save onboarding preference", error);
+      setIsCompleting(false);
+    }
   };
 
   const scrollHandler = useAnimatedScrollHandler({
@@ -293,13 +314,10 @@ export default function OnboardingScreen() {
               </Text>
               <Pressable
                 accessibilityRole="button"
+                disabled={isCompleting}
                 className="items-center rounded-full px-6 py-4"
                 style={{ backgroundColor: appTheme.colors.primary }}
-                onPress={() => {
-                  setShowAccountOptions(false);
-                  setPreference("hasSkippedOnboarding", true);
-                  router.push("/auth");
-                }}
+                onPress={() => completeOnboarding("/auth")}
               >
                 <Text className="font-bold" style={{ color: appTheme.colors.inverseForeground }}>
                   {t("onboarding.signIn")}
@@ -307,13 +325,10 @@ export default function OnboardingScreen() {
               </Pressable>
               <Pressable
                 accessibilityRole="button"
+                disabled={isCompleting}
                 className="items-center rounded-full px-6 py-4"
                 style={{ backgroundColor: alpha(appTheme.colors.primary, 0.12) }}
-                onPress={() => {
-                  setShowAccountOptions(false);
-                  setPreference("hasSkippedOnboarding", true);
-                  router.replace("/home");
-                }}
+                onPress={() => completeOnboarding("/home")}
               >
                 <Text className="font-bold" style={{ color: appTheme.colors.primary }}>
                   {t("onboarding.continueWithoutAccount")}

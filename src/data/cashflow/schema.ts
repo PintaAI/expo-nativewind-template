@@ -1,7 +1,7 @@
 import type { SQLiteDatabase } from "expo-sqlite";
 import { reseedDemoCashflowEntries, seedCashflowDatabase } from "./seed";
 
-const DATABASE_VERSION = 7;
+const DATABASE_VERSION = 8;
 
 export async function migrateCashflowDatabase(db: SQLiteDatabase) {
   await db.execAsync("PRAGMA foreign_keys = ON; PRAGMA journal_mode = WAL;");
@@ -136,6 +136,7 @@ export async function migrateCashflowDatabase(db: SQLiteDatabase) {
         management_id TEXT NOT NULL REFERENCES managements(id),
         frequency TEXT NOT NULL,
         next_date TEXT NOT NULL,
+        reminder_time TEXT NOT NULL DEFAULT '09:00',
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL,
         deleted_at TEXT,
@@ -285,6 +286,13 @@ export async function migrateCashflowDatabase(db: SQLiteDatabase) {
         OR exchange_rate_at IS NULL;
     `);
     currentVersion = 7;
+  }
+
+  if (currentVersion < 8) {
+    await db.execAsync(`
+      ALTER TABLE recurring_entries ADD COLUMN reminder_time TEXT NOT NULL DEFAULT '09:00';
+    `).catch(() => undefined);
+    currentVersion = 8;
   }
 
   await db.execAsync(`PRAGMA user_version = ${DATABASE_VERSION}`);

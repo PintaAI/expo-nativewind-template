@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { Alert, Pressable, View } from "react-native";
-import { SymbolView, type SFSymbol } from "expo-symbols";
+import { type SFSymbol } from "expo-symbols";
+import { AppSymbol } from "@/components/AppSymbol";
 import { AppText as RNText } from "@/components/AppText";
 import { useAppTheme } from "@/components/AppTheme";
 import { useCurrency } from "@/components/CurrencyProvider";
@@ -16,7 +17,7 @@ type CashflowCalendarProps = {
 };
 
 function CalSymbol({ name, color, size = 15 }: { name: SFSymbol; color: string; size?: number }) {
-  return <SymbolView name={name} size={size} tintColor={color} fallback={<RNText style={{ color }}>•</RNText>} />;
+  return <AppSymbol name={name} size={size} tintColor={color} fallback={<RNText style={{ color }}>•</RNText>} />;
 }
 
 function getCalendarDays(monthDate: Date) {

@@ -1,4 +1,5 @@
 import type { SQLiteDatabase } from "expo-sqlite";
+import { Platform } from "react-native";
 import type { ActivityOverview } from "@/components/cashflow/ActivityHeatmap";
 import type { CashflowEntry } from "@/components/cashflow/CashflowTable";
 import type { CashflowStats } from "@/components/cashflow/CashflowStatsCard";
@@ -95,9 +96,18 @@ type RecurringEntryRow = {
   io: "Income" | "Expenses";
   frequency: RecurringFrequency;
   next_date: string;
+  reminder_time: string;
 };
 
 type EntryWriter = Pick<SQLiteDatabase, "getFirstAsync" | "runAsync">;
+type RecurringEntryWriter = Pick<SQLiteDatabase, "getAllAsync" | "getFirstAsync" | "runAsync">;
+
+export type MaterializedRecurringEntry = {
+  recurringEntryId: string;
+  managementId: string;
+  name: string;
+  date: string;
+};
 
 const EMPTY_STATS: CashflowStats = {
   totalIncome: 0,
@@ -175,6 +185,7 @@ function mapRecurringEntry(row: RecurringEntryRow): CashflowRecurringEntry {
     io: row.io,
     frequency: row.frequency,
     nextDate: row.next_date,
+    reminderTime: row.reminder_time,
   };
 }
 
@@ -311,7 +322,7 @@ export async function listQuickFills(db: SQLiteDatabase, managementId: string): 
 
 export async function listRecurringEntries(db: SQLiteDatabase, managementId: string): Promise<CashflowRecurringEntry[]> {
   const rows = await db.getAllAsync<RecurringEntryRow>(
-    `SELECT id, name, nominal, category_id, management_id, io, frequency, next_date
+    `SELECT id, name, nominal, category_id, management_id, io, frequency, next_date, reminder_time
      FROM recurring_entries
      WHERE management_id = ? AND deleted_at IS NULL
      ORDER BY next_date ASC, created_at ASC`,
@@ -321,28 +332,52 @@ export async function listRecurringEntries(db: SQLiteDatabase, managementId: str
   return rows.map(mapRecurringEntry);
 }
 
-export async function materializeDueRecurringEntries(db: SQLiteDatabase, managementId: string) {
-  const today = toDateKey(new Date());
+export async function listAllRecurringEntries(db: SQLiteDatabase): Promise<CashflowRecurringEntry[]> {
   const rows = await db.getAllAsync<RecurringEntryRow>(
-    `SELECT id, name, nominal, category_id, management_id, io, frequency, next_date
+    `SELECT id, name, nominal, category_id, management_id, io, frequency, next_date, reminder_time
+     FROM recurring_entries
+     WHERE deleted_at IS NULL
+     ORDER BY next_date ASC, created_at ASC`,
+  );
+
+  return rows.map(mapRecurringEntry);
+}
+
+async function materializeDueRecurringEntriesWithWriter(db: RecurringEntryWriter, managementId: string) {
+  const now = new Date();
+  const today = toDateKey(now);
+  const rows = await db.getAllAsync<RecurringEntryRow>(
+    `SELECT id, name, nominal, category_id, management_id, io, frequency, next_date, reminder_time
      FROM recurring_entries
      WHERE management_id = ? AND deleted_at IS NULL AND next_date <= ?
      ORDER BY next_date ASC, created_at ASC`,
     managementId,
     today,
   );
+  const materialized: MaterializedRecurringEntry[] = [];
 
   for (const row of rows) {
     let entryDate = row.next_date;
     let nextDate = row.next_date;
 
     while (entryDate <= today) {
+      const scheduledAt = parseDateKey(entryDate);
+      const [hour, minute] = row.reminder_time.split(":").map(Number);
+      scheduledAt.setHours(hour, minute, 0, 0);
+      if (scheduledAt > now) break;
+
       await createEntry(db, managementId, {
         name: row.name,
         nominal: row.nominal,
         categoryId: row.category_id,
         date: entryDate,
         io: row.io,
+      });
+      materialized.push({
+        recurringEntryId: row.id,
+        managementId,
+        name: row.name,
+        date: entryDate,
       });
       nextDate = nextRecurringDate(entryDate, row.frequency);
       entryDate = nextDate;
@@ -360,6 +395,33 @@ export async function materializeDueRecurringEntries(db: SQLiteDatabase, managem
       managementId,
     );
   }
+
+  return materialized;
+}
+
+export async function materializeDueRecurringEntries(db: SQLiteDatabase, managementId: string) {
+  if (Platform.OS === "web") {
+    return materializeDueRecurringEntriesWithWriter(db, managementId);
+  }
+
+  let materialized: MaterializedRecurringEntry[] = [];
+  await db.withExclusiveTransactionAsync(async (transaction) => {
+    materialized = await materializeDueRecurringEntriesWithWriter(transaction, managementId);
+  });
+  return materialized;
+}
+
+export async function materializeAllDueRecurringEntries(db: SQLiteDatabase) {
+  const managements = await db.getAllAsync<{ id: string }>(
+    "SELECT id FROM managements WHERE deleted_at IS NULL",
+  );
+  const materialized: MaterializedRecurringEntry[] = [];
+
+  for (const management of managements) {
+    materialized.push(...await materializeDueRecurringEntries(db, management.id));
+  }
+
+  return materialized;
 }
 
 export async function createQuickFill(db: SQLiteDatabase, managementId: string, input: CreateQuickFillInput) {
@@ -404,8 +466,8 @@ export async function createRecurringEntry(db: SQLiteDatabase, managementId: str
   const createdAt = nowIso();
 
   await db.runAsync(
-    `INSERT INTO recurring_entries (id, name, nominal, category_id, io, management_id, frequency, next_date, created_at, updated_at, sync_status)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`,
+    `INSERT INTO recurring_entries (id, name, nominal, category_id, io, management_id, frequency, next_date, reminder_time, created_at, updated_at, sync_status)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`,
     createId("recurring-entry"),
     trimmedName,
     input.nominal,
@@ -414,6 +476,7 @@ export async function createRecurringEntry(db: SQLiteDatabase, managementId: str
     managementId,
     input.frequency,
     input.nextDate,
+    input.reminderTime,
     createdAt,
     createdAt,
   );
@@ -706,6 +769,44 @@ export async function updateEntry(db: SQLiteDatabase, managementId: string, entr
   );
 }
 
+export async function moveEntries(db: SQLiteDatabase, sourceManagementId: string, targetManagementId: string, entryIds: string[]) {
+  if (sourceManagementId === targetManagementId || entryIds.length === 0) return;
+
+  await db.withTransactionAsync(async () => {
+    const target = await db.getFirstAsync<{ id: string }>(
+      "SELECT id FROM managements WHERE id = ? AND deleted_at IS NULL",
+      targetManagementId,
+    );
+    if (!target) throw new Error("Destination wallet not found");
+
+    for (const entryId of entryIds) {
+      const updatedAt = nowIso();
+      const result = await db.runAsync(
+        `UPDATE entries SET
+           category_id = (
+             SELECT target.id
+             FROM categories AS source
+             JOIN categories AS target ON target.name = source.name
+             WHERE source.id = entries.category_id
+               AND target.management_id = ?
+               AND target.deleted_at IS NULL
+             LIMIT 1
+           ),
+           management_id = ?,
+           updated_at = ?,
+           sync_status = CASE WHEN sync_status = 'pending' THEN 'pending' ELSE 'updated' END
+         WHERE id = ? AND management_id = ? AND deleted_at IS NULL`,
+        targetManagementId,
+        targetManagementId,
+        updatedAt,
+        entryId,
+        sourceManagementId,
+      );
+      if (result.changes !== 1) throw new Error("Entry could not be moved");
+    }
+  });
+}
+
 export async function deleteEntry(db: SQLiteDatabase, managementId: string, entryId: string) {
   const updatedAt = nowIso();
 
@@ -720,6 +821,26 @@ export async function deleteEntry(db: SQLiteDatabase, managementId: string, entr
     entryId,
     managementId,
   );
+}
+
+export async function deleteEntriesBulk(db: SQLiteDatabase, managementId: string, ids: string[]) {
+  if (ids.length === 0) return;
+  const updatedAt = nowIso();
+
+  await db.withTransactionAsync(async () => {
+    const MAX_IDS_PER_QUERY = 500;
+    for (let i = 0; i < ids.length; i += MAX_IDS_PER_QUERY) {
+      const chunk = ids.slice(i, i + MAX_IDS_PER_QUERY);
+      const placeholders = chunk.map(() => "?").join(",");
+      await db.runAsync(
+        `UPDATE entries SET deleted_at = ?, updated_at = ?, sync_status = 'deleted' WHERE id IN (${placeholders}) AND management_id = ? AND deleted_at IS NULL`,
+        updatedAt,
+        updatedAt,
+        ...chunk,
+        managementId,
+      );
+    }
+  });
 }
 
 async function insertEntry(db: EntryWriter, managementId: string, input: CreateEntryInput, createdAt = nowIso()) {
@@ -746,7 +867,7 @@ async function insertEntry(db: EntryWriter, managementId: string, input: CreateE
   );
 }
 
-export async function createEntry(db: SQLiteDatabase, managementId: string, input: CreateEntryInput) {
+export async function createEntry(db: EntryWriter, managementId: string, input: CreateEntryInput) {
   await insertEntry(db, managementId, input);
 }
 

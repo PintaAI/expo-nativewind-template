@@ -1,8 +1,11 @@
-import { Pressable, ScrollView, View } from "react-native";
+import { Platform, Pressable, ScrollView, View } from "react-native";
 import { router, Stack } from "expo-router";
+import { toolbarIcons } from "@/config/toolbarIcons";
 import { useTranslation } from "react-i18next";
 import { AppText as Text } from "@/components/AppText";
-import { SymbolView, type SFSymbol } from "expo-symbols";
+import { AndroidFormFooter, AndroidFormFooterButton } from "@/components/AndroidFormFooter";
+import type { SFSymbol } from "expo-symbols";
+import { AppSymbol } from "@/components/AppSymbol";
 import { useAppTheme } from "@/components/AppTheme";
 import { alpha } from "@/lib/color";
 
@@ -12,6 +15,7 @@ type SidebarFormSheetProps = {
   icon: SFSymbol;
   fields: string[];
   actions?: string[];
+  androidFitToContents?: boolean;
 };
 
 function PlaceholderField({ label }: { label: string }) {
@@ -35,7 +39,7 @@ function PlaceholderField({ label }: { label: string }) {
   );
 }
 
-export function SidebarFormSheet({ title, description, icon, fields, actions: actionsProp }: SidebarFormSheetProps) {
+export function SidebarFormSheet({ title, description, icon, fields, actions: actionsProp, androidFitToContents = false }: SidebarFormSheetProps) {
   const appTheme = useAppTheme();
   const { t } = useTranslation();
   const actions = actionsProp ?? [t("common.cancel"), t("common.save")];
@@ -44,18 +48,32 @@ export function SidebarFormSheet({ title, description, icon, fields, actions: ac
 
   return (
     <>
-      <Stack.Screen options={{ title }} />
-      <Stack.Toolbar placement="left">
-        <Stack.Toolbar.Button icon="xmark" onPress={() => router.back()} />
-      </Stack.Toolbar>
+      <Stack.Screen
+        options={{
+          title,
+          unstable_sheetFooter: Platform.OS === "android"
+            ? () => (
+                <AndroidFormFooter>
+                  <AndroidFormFooterButton label={t("common.close")} onPress={() => router.back()} />
+                </AndroidFormFooter>
+              )
+            : undefined,
+        }}
+      />
+      {Platform.OS === "ios" ? (
+        <Stack.Toolbar placement="left">
+          <Stack.Toolbar.Button icon={toolbarIcons.close} accessibilityLabel="Close" onPress={() => router.back()} />
+        </Stack.Toolbar>
+      ) : null}
       <ScrollView
-        className="flex-1 bg-[--app-color-background]"
+        className={Platform.OS === "android" && androidFitToContents ? "bg-[--app-color-background]" : "flex-1 bg-[--app-color-background]"}
         contentContainerClassName="gap-5 px-5 pb-8 pt-6"
         contentInsetAdjustmentBehavior="automatic"
+        nestedScrollEnabled={Platform.OS === "android"}
       >
         <View className="gap-3 rounded-3xl border p-4" style={{ borderColor, backgroundColor: accentSurface }}>
           <View className="h-12 w-12 items-center justify-center rounded-2xl" style={{ backgroundColor: appTheme.colors.primary }}>
-            <SymbolView name={icon} size={22} tintColor={appTheme.colors.inverseForeground} fallback={<Text>•</Text>} />
+            <AppSymbol name={icon} size={22} tintColor={appTheme.colors.inverseForeground} fallback={<Text>•</Text>} />
           </View>
           <View className="gap-1">
             <Text className="text-2xl font-black tracking-tight" style={{ color: appTheme.colors.foreground }}>

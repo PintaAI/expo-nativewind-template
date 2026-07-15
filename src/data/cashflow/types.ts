@@ -77,6 +77,7 @@ export type CashflowRecurringEntry = {
   io: "Income" | "Expenses";
   frequency: RecurringFrequency;
   nextDate: string;
+  reminderTime: string;
 };
 
 export type CreateEntryInput = {
@@ -124,6 +125,7 @@ export type CreateRecurringEntryInput = {
   io: "Income" | "Expenses";
   frequency: RecurringFrequency;
   nextDate: string;
+  reminderTime: string;
 };
 
 export type CashflowAnalytics = {
@@ -164,6 +166,7 @@ export type CashflowDataState = {
   deleteRecurringEntry: (id: string) => Promise<void>;
   createEntry: (input: CreateEntryInput) => Promise<void>;
   updateEntry: (id: string, input: CreateEntryInput) => Promise<void>;
+  moveEntries: (ids: string[], targetManagementId: string) => Promise<void>;
   deleteEntry: (id: string) => Promise<void>;
   deleteEntries: (ids: string[]) => Promise<void>;
   createTransfer: (input: CreateTransferInput) => Promise<void>;

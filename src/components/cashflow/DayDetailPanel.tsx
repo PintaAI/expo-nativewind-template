@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { Pressable, ScrollView, View } from "react-native";
-import { SymbolView, type SFSymbol } from "expo-symbols";
+import { type SFSymbol } from "expo-symbols";
+import { AppSymbol } from "@/components/AppSymbol";
 import { AppText as RNText } from "@/components/AppText";
 import { useAppTheme } from "@/components/AppTheme";
 import { useCurrency } from "@/components/CurrencyProvider";
@@ -16,7 +17,7 @@ type DayDetailPanelProps = {
 
 
 function DetailSymbol({ name, color, size = 15 }: { name: SFSymbol; color: string; size?: number }) {
-  return <SymbolView name={name} size={size} tintColor={color} fallback={<RNText style={{ color }}>•</RNText>} />;
+  return <AppSymbol name={name} size={size} tintColor={color} fallback={<RNText style={{ color }}>•</RNText>} />;
 }
 
 export function DayDetailPanel({ date, entries, onEntryPress }: DayDetailPanelProps) {

@@ -569,6 +569,7 @@ export type RecurringEntryRow = {
   management_id: string;
   frequency: RecurringFrequency;
   next_date: string;
+  reminder_time: string;
   created_at: string;
   updated_at: string;
   sync_status: string;
@@ -584,6 +585,7 @@ export type RecurringEntryUpsertFields = {
   management_id: string;
   frequency: RecurringFrequency;
   next_date: string;
+  reminder_time: string;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
@@ -595,6 +597,7 @@ export type RecurringEntryCreateBody = {
   nominal: number;
   io: Io;
   frequency: RecurringFrequency;
+  reminderTime: string;
   startDate: string;
   managementId: string;
   categoryId?: string;
@@ -626,6 +629,7 @@ export function serverRecurringToLocal(
     management_id: localManagementId,
     frequency: server.frequency,
     next_date: server.lastGenerated ?? server.startDate,
+    reminder_time: server.reminderTime ?? "09:00",
     created_at: server.createdAt ?? nowIso,
     updated_at: server.updatedAt ?? nowIso,
     deleted_at: null,
@@ -644,6 +648,7 @@ async function recurringBody(
     nominal: local.nominal,
     io: local.io,
     frequency: local.frequency,
+    reminderTime: local.reminder_time,
     startDate: local.next_date || todayDateKey(),
     managementId,
   };

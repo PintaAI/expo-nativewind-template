@@ -1,10 +1,13 @@
 import { useState, useEffect, useMemo, type ReactNode } from "react";
-import { Alert, Modal, Pressable, ScrollView, TextInput as RNTextInput, View, useWindowDimensions } from "react-native";
+import { Alert, Modal, Platform, Pressable, ScrollView, TextInput as RNTextInput, View, useWindowDimensions } from "react-native";
 import { router, Stack, useLocalSearchParams, type Href } from "expo-router";
+import { toolbarIcons } from "@/config/toolbarIcons";
 import { AppText as Text } from "@/components/AppText";
-import SegmentedControl from "@expo/ui/community/segmented-control";
+import { AppSegmentedControl } from "@/components/AppSegmentedControl";
+import { AndroidFormFooter, AndroidFormFooterButton } from "@/components/AndroidFormFooter";
 import DateTimePicker from "@expo/ui/community/datetime-picker";
-import { SymbolView, type SFSymbol } from "expo-symbols";
+import { type SFSymbol } from "expo-symbols";
+import { AppSymbol } from "@/components/AppSymbol";
 import { GlassBox } from "@/components/GlassBox";
 import { useTranslation } from "react-i18next";
 import i18n from "@/i18n";
@@ -19,7 +22,7 @@ import { alpha } from "@/lib/color";
 import { toDateKey, parseDateKey } from "@/lib/date";
 
 function FormSymbol({ name, color, size = 16 }: { name: SFSymbol; color: string; size?: number }) {
-  return <SymbolView name={name} size={size} tintColor={color} fallback={<Text style={{ color }}>•</Text>} />;
+  return <AppSymbol name={name} size={size} tintColor={color} fallback={<Text style={{ color }}>•</Text>} />;
 }
 
 function getDateDaysAgo(daysAgo: number) {
@@ -314,67 +317,106 @@ export default function EntryForm() {
 
   return (
     <>
-      <Stack.Screen options={{ title: isEditing ? t("entry.edit") : "" }} />
-      <Stack.Toolbar placement="left">
-        <Stack.Toolbar.View hidesSharedBackground>
-          <SegmentedControl
-            values={[t("entry.income"), t("entry.expense")]}
-            selectedIndex={ioIndex}
-            onChange={(event) => setIoIndex(event.nativeEvent.selectedSegmentIndex)}
-            tintColor={appTheme.colors.primary}
-            appearance={appTheme.isDark ? "dark" : "light"}
-            style={{ width: 180 }}
-          />
-        </Stack.Toolbar.View>
-      </Stack.Toolbar>
-      <Stack.Toolbar placement="right">
-        <Stack.Toolbar.Button icon="eraser" onPress={clearForm} />
-        <Stack.Toolbar.Button icon="checkmark" onPress={handleSave} variant="done">
-          {t("entry.save")}
-        </Stack.Toolbar.Button>
-      </Stack.Toolbar>
-      <Stack.Toolbar placement="bottom">
-        <Stack.Toolbar.View hidesSharedBackground>
-          <GlassBox
-            isInteractive
-            tintColor={alpha(appTheme.colors.primary, appTheme.isDark ? 0.35 : 0.18)}
-            glassEffectStyle="clear"
-              style={{
-                borderRadius: 9999,
-                height: 40,
-                width: Math.max(220, screenWidth - 32),
-              }}
-          >
-            {noteText.length === 0 ? (
-              <View pointerEvents="none" className="absolute inset-0 justify-center px-3.5">
-                <Text className="text-base" style={{ color: appTheme.colors.muted }}>
-                  {t("entry.placeholder.spendingToday")}
-                </Text>
-              </View>
-            ) : null}
-            <RNTextInput
-              value={noteText}
-              onChangeText={setNoteText}
-              selectionColor={appTheme.colors.primary}
-              style={{
-                color: appTheme.colors.foreground,
-                fontSize: 16,
-                height: 40,
-                includeFontPadding: false,
-                paddingHorizontal: 14,
-                paddingVertical: 0,
-                textAlignVertical: "center",
-              }}
-            />
-          </GlassBox>
-        </Stack.Toolbar.View>
-      </Stack.Toolbar>
+      <Stack.Screen
+        options={{
+          title: isEditing ? t("entry.edit") : "",
+          unstable_sheetFooter: Platform.OS === "android"
+            ? () => (
+                <AndroidFormFooter>
+                  <AndroidFormFooterButton label={t("entry.clear")} onPress={clearForm} />
+                  <AndroidFormFooterButton label={t("entry.save")} onPress={handleSave} primary />
+                </AndroidFormFooter>
+              )
+            : undefined,
+        }}
+      />
+      {Platform.OS === "ios" ? (
+        <>
+          <Stack.Toolbar placement="left">
+            <Stack.Toolbar.View hidesSharedBackground>
+              <AppSegmentedControl
+                values={[t("entry.income"), t("entry.expense")]}
+                selectedIndex={ioIndex}
+                onIndexChange={setIoIndex}
+                style={{ width: 180 }}
+              />
+            </Stack.Toolbar.View>
+          </Stack.Toolbar>
+          <Stack.Toolbar placement="right">
+            <Stack.Toolbar.Button icon={toolbarIcons.clear} accessibilityLabel={t("entry.clear")} onPress={clearForm} />
+            <Stack.Toolbar.Button icon={toolbarIcons.check} onPress={handleSave} variant="done">
+              {t("entry.save")}
+            </Stack.Toolbar.Button>
+          </Stack.Toolbar>
+          <Stack.Toolbar placement="bottom">
+            <Stack.Toolbar.View hidesSharedBackground>
+              <GlassBox
+                isInteractive
+                tintColor={alpha(appTheme.colors.primary, appTheme.isDark ? 0.35 : 0.18)}
+                glassEffectStyle="clear"
+                style={{
+                  borderRadius: 9999,
+                  height: 40,
+                  width: Math.max(220, screenWidth - 32),
+                }}
+              >
+                {noteText.length === 0 ? (
+                  <View pointerEvents="none" className="absolute inset-0 justify-center px-3.5">
+                    <Text className="text-base" style={{ color: appTheme.colors.muted }}>
+                      {t("entry.placeholder.spendingToday")}
+                    </Text>
+                  </View>
+                ) : null}
+                <RNTextInput
+                  value={noteText}
+                  onChangeText={setNoteText}
+                  selectionColor={appTheme.colors.primary}
+                  style={{
+                    color: appTheme.colors.foreground,
+                    fontSize: 16,
+                    height: 40,
+                    includeFontPadding: false,
+                    paddingHorizontal: 14,
+                    paddingVertical: 0,
+                    textAlignVertical: "center",
+                  }}
+                />
+              </GlassBox>
+            </Stack.Toolbar.View>
+          </Stack.Toolbar>
+        </>
+      ) : null}
       <ScrollView
         className="bg-[--app-color-background] flex-1"
         contentContainerClassName="gap-4 px-4 pb-20 pt-4"
         contentInsetAdjustmentBehavior="automatic"
         keyboardShouldPersistTaps="handled"
+        nestedScrollEnabled={Platform.OS === "android"}
       >
+        {Platform.OS === "android" ? (
+          <View className="gap-3 pb-1">
+            <AppSegmentedControl
+              values={[t("entry.income"), t("entry.expense")]}
+              selectedIndex={ioIndex}
+              onIndexChange={setIoIndex}
+              style={{ width: "100%" }}
+            />
+            <RNTextInput
+              value={noteText}
+              onChangeText={setNoteText}
+              placeholder={t("entry.placeholder.spendingToday")}
+              placeholderTextColor={appTheme.colors.muted}
+              selectionColor={appTheme.colors.primary}
+              className="h-12 rounded-2xl border px-4"
+              style={{
+                backgroundColor: alpha(appTheme.colors.primary, appTheme.isDark ? 0.14 : 0.07),
+                borderColor: alpha(appTheme.colors.muted, 0.2),
+                color: appTheme.colors.foreground,
+                fontSize: 16,
+              }}
+            />
+          </View>
+        ) : null}
         <View className="items-center gap-2 pb-1">
           <View className="h-28 w-full items-center justify-center">
             <CashflowAmountInput amountText={amountText} currencySymbol={currency.option.symbol} onAmountTextChange={setAmountText} />

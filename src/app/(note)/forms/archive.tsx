@@ -10,6 +10,7 @@ export default function ArchiveForm() {
       icon="archivebox.fill"
       fields={[t("archive.fieldSearch"), t("archive.fieldSortBy"), t("archive.fieldDateRange")]}
       actions={[t("common.close")]}
+      androidFitToContents
     />
   );
 }
